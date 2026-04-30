@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* STYLIZACJA PREMIUM DLA LIST UTWORÓW */
+    .song-row { transition: all 0.2s ease; }
+    .song-row:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
+    .song-row td:first-child { border-top-left-radius: 1rem; border-bottom-left-radius: 1rem; position: relative; }
+    .song-row td:last-child { border-top-right-radius: 1rem; border-bottom-right-radius: 1rem; }
+
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 10%; bottom: 10%; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10; border-radius: 2px;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    
+    .song-row:hover .play-icon { display: block; opacity: 1; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row.is-playing:hover .play-icon { display: none; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; margin: 0 auto; }
+    .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
+    .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+    .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+    .equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+    @keyframes up-and-down { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+    select option { background-color: #1f2937; color: white; }
+</style>
+
+<div class="space-y-8 pb-10">
+    <div class="flex flex-col gap-4">
+        <a href="{% url 'music:home' %}" class="w-fit text-text-secondary hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-element group-hover:bg-primary/20 transition-colors border border-border-main">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do strony głównej
+        </a>
+
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+                <h1 class="text-4xl md:text-6xl font-black text-text-main tracking-tighter">
+                    Ranking 
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500">
+                        Utwory
+                    </span>
+                </h1>
+                <p class="text-text-secondary mt-2">Odkryj najpopularniejsze piosenki na BeatHub</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="sticky top-4 z-40 space-y-4">
+        <div class="bg-background-card/60 backdrop-blur-xl p-4 rounded-2xl border border-border-main shadow-2xl space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="flex gap-2">
+                    <div class="flex-1 relative group">
+                        <select id="year-min-select" class="w-full px-4 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-border-light transition-colors">
+                            <option value="">Od (rok)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 relative group">
+                        <select id="year-max-select" class="w-full px-4 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-border-light transition-colors">
+                            <option value="">Do (rok)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="relative group">
+                    <select id="sort-selector" class="w-full px-6 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-border-light transition-colors">
+                        <option value="-play_count" {% if current_sort == '-play_count' %}selected{% endif %}>Najpopularniejsze</option>
+                        <option value="-likes_count" {% if current_sort == '-likes_count' %}selected{% endif %}>Najbardziej lubiane</option>
+                        <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Tytuł (A-Z)</option>
+                        <option value="-title" {% if current_sort == '-title' %}selected{% endif %}>Tytuł (Z-A)</option>
+                    </select>
+                </div>
+
+                <div id="time-range-wrapper" class="{% if current_sort != '-play_count' %}hidden{% endif %} flex flex-col gap-2 relative group">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-text-muted">Zakres czasu</label>
+                    <select id="time-range-selector" class="w-full px-6 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-border-light transition-colors">
+                        <option value="all" {% if time_range == 'all' %}selected{% endif %}>Wszystko</option>
+                        <option value="month" {% if time_range == 'month' %}selected{% endif %}>Miesiąc</option>
+                        <option value="week" {% if time_range == 'week' %}selected{% endif %}>Tydzień</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="active-filters-container" class="hidden flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border-main">
+                <span class="text-xs font-bold text-text-muted uppercase tracking-widest mr-2">Aktywne:</span>
+                <div id="active-pills-list" class="flex flex-wrap gap-2"></div>
+                <button type="button" onclick="window.resetAllFilters()" class="ml-auto text-xs text-text-muted hover:text-red-400 transition-colors flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Wyczyść wszystko
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3" id="genre-pills-container">
+        <a href="javascript:void(0)" onclick="window.resetGenreFilters()" 
+           id="genre-pill-all"
+           class="px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all bg-primary text-background-main shadow-lg shadow-primary-glow/20">
+            Wszystkie
+        </a>
+
+        {% for genre in genres %}
+        <a href="javascript:void(0)" onclick="window.toggleGenre('{{ genre.id }}')"
+           id="genre-pill-{{ genre.id }}"
+           class="genre-pill px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 bg-background-element text-text-secondary hover:bg-background-card">
+            {% if genre.image %}<img src="{{ genre.image.url }}" class="w-3 h-3 rounded-full object-cover">{% endif %}
+            {{ genre.name }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <div id="song-list-results">
+        <div class="bg-background-card rounded-2xl border border-border-main overflow-hidden backdrop-blur-sm">
+            <table class="w-full text-left border-separate border-spacing-0">
+                <thead>
+                    <tr class="uppercase text-[10px] font-bold tracking-widest text-text-muted">
+                        <th class="bg-background-element/50 py-4 px-6 w-16 text-center border-b border-border-main rounded-tl-2xl cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('id')">
+                            <div class="flex items-center justify-center gap-2">
+                                #
+                                <span class="sort-icon">
+                                    {% if current_sort == 'id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('title')">
+                            <div class="flex items-center gap-2">
+                                Tytuł
+                                <span class="sort-icon">
+                                    {% if current_sort == 'title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main hidden md:table-cell w-[20%]">Album</th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main hidden lg:table-cell w-24 cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('album__release_date')">
+                            <div class="flex items-center gap-2">
+                                Rok
+                                <span class="sort-icon">
+                                    {% if current_sort == 'album__release_date' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-album__release_date' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 text-right border-b border-border-main hidden sm:table-cell cursor-pointer hover:text-text-main transition-colors group w-32" onclick="window.toggleSort('play_count')">
+                            <div class="flex items-center justify-end gap-2">
+                                <span class="sort-icon">
+                                    {% if current_sort == 'play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>{% endif %}
+                                </span>
+                                Odtw.
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 text-center border-b border-border-main w-24">Czas</th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main rounded-tr-2xl w-16"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for song in songs %}
+                        {% include 'music/partials/song_row.html' with song=song row_context='ranking' context_type='songs_list' %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="py-20 text-center text-text-muted">
+                                <div class="flex flex-col items-center gap-4">
+                                    <svg class="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"></path></svg>
+                                    <p>Nie znaleziono utworów pasujących do filtrów.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-12 mb-10 flex flex-col items-center gap-6">
+            {% if is_paginated %}
+            <div class="inline-flex items-center gap-4 bg-background-card/50 p-2 rounded-xl border border-border-main shadow-lg backdrop-blur-sm">
+                {% if page_obj.has_previous %}
+                    <a href="javascript:void(0)" onclick="window.fetchFilteredResults({{ page_obj.previous_page_number }})" class="px-5 py-2.5 bg-background-element text-text-secondary rounded-lg hover:bg-primary hover:text-background-main transition-all font-medium border border-border-main">
+                        &larr;
+                    </a>
+                {% endif %}
+                
+                <div class="flex items-center gap-3 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-700/30">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Strona</span>
+                    <input type="number" 
+                           value="{{ page_obj.number }}" 
+                           min="1" 
+                           max="{{ page_obj.paginator.num_pages }}"
+                           onkeydown="if(event.key==='Enter') window.goToPage(this, 'page')"
+                           onblur="window.goToPage(this, 'page')"
+                           class="bg-transparent text-text-main font-black text-base outline-none w-12 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none border-b border-transparent focus:border-primary transition-colors">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">z {{ page_obj.paginator.num_pages }}</span>
+                </div>
+
+                {% if page_obj.has_next %}
+                    <a href="javascript:void(0)" onclick="window.fetchFilteredResults({{ page_obj.next_page_number }})" class="px-5 py-2.5 bg-background-element text-text-secondary rounded-lg hover:bg-primary hover:text-background-main transition-all font-medium border border-border-main">
+                        &rarr;
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="flex items-center gap-4 bg-background-card/50 px-6 py-3 rounded-2xl border border-border-main shadow-xl">
+                <span class="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Pokaż na stronie</span>
+                <select id="per-page-select" onchange="window.fetchFilteredResults(1)" class="bg-background-element border border-border-main text-text-main text-sm font-bold rounded-xl focus:ring-primary outline-none px-4 py-2 cursor-pointer hover:border-border-light transition-colors">
+                    <option value="10" {% if request.GET.per_page == '10' %}selected{% endif %}>10 utworów</option>
+                    <option value="20" {% if request.GET.per_page == '20' or not request.GET.per_page %}selected{% endif %}>20 utworów</option>
+                    <option value="50" {% if request.GET.per_page == '50' %}selected{% endif %}>50 utworów</option>
+                </select>
+                
+                <div class="ml-4 pl-4 border-l border-border-main text-xs font-bold text-text-muted uppercase tracking-widest">
+                    Łącznie: <span class="text-text-main">{{ paginator.count }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script id="page-queue-data" type="application/json">
+        [
+            {% for song in songs %}
+            {
+                "id": "{{ song.id }}",
+                "url": "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}",
+                "title": "{{ song.title|escapejs }}",
+                "artist": "{{ song.album.artist.nickname|escapejs }}",
+                "cover": "{{ song.album.cover.url }}",
+                "album_slug": "{{ song.album.slug }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    </script>
+</div>
+
+<script>
+    (function() {
+        const updateQueueFromJSON = () => {
+            const d = document.getElementById('page-queue-data');
+            if (d) window.pageQueue = JSON.parse(d.textContent);
+        };
+        window.updateQueueFromJSON = updateQueueFromJSON;
+        updateQueueFromJSON();
+
+        window.activeGenres = window.activeGenres || new Set();
+        window.activeYearMin = window.activeYearMin || "";
+        window.activeYearMax = window.activeYearMax || "";
+
+        const syncStateFromUrl = () => {
+            const p = new URLSearchParams(window.location.search);
+            window.activeGenres.clear();
+            p.getAll('genre').forEach(id => { if (id) window.activeGenres.add(id.toString()); });
+            window.activeYearMin = p.get('year_min') || "";
+            window.activeYearMax = p.get('year_max') || "";
+        };
+
+        const minS = document.getElementById('year-min-select'),
+              maxS = document.getElementById('year-max-select'),
+              sortS = document.getElementById('sort-selector'),
+              timeS = document.getElementById('time-range-selector');
+
+        const years = [];
+        for(let y=new Date().getFullYear(); y>=1950; y--) years.push(y);
+        
+        [minS, maxS].forEach(s => {
+            years.forEach(y => {
+                const opt = document.createElement('option');
+                opt.value = y; opt.textContent = y;
+                s.appendChild(opt);
+            });
+        });
+
+        minS.value = window.activeYearMin;
+        maxS.value = window.activeYearMax;
+
+        const globalSearch = document.getElementById('search-input');
+        if (globalSearch) {
+            let searchTimeout;
+            globalSearch.oninput = () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => window.fetchFilteredResults(1), 500);
+            };
+        }
+
+        sortS.onchange = () => {
+            const trw = document.getElementById('time-range-wrapper');
+            if (trw) trw.classList.toggle('hidden', sortS.value !== '-play_count');
+            window.fetchFilteredResults(1);
+        };
+
+        [minS, maxS, timeS].forEach(el => {
+            if(el) el.onchange = () => window.fetchFilteredResults(1);
+        });
+
+        window.toggleGenre = id => {
+            if (window.activeGenres.has(id)) window.activeGenres.delete(id);
+            else window.activeGenres.add(id);
+            window.fetchFilteredResults(1);
+        };
+
+        window.resetGenreFilters = () => {
+            window.activeGenres.clear();
+            window.fetchFilteredResults(1);
+        };
+
+        window.resetAllFilters = () => {
+            window.activeGenres.clear();
+            window.activeYearMin = window.activeYearMax = "";
+            minS.value = maxS.value = "";
+            sortS.value = "-play_count";
+            if(timeS) timeS.value = "all";
+            window.fetchFilteredResults(1);
+        };
+
+        window.toggleSort = s => {
+            sortS.value = (sortS.value === s) ? '-' + s : s;
+            window.fetchFilteredResults(1);
+        };
+
+        window.fetchFilteredResults = async function(page = 1) {
+            const resC = document.getElementById('song-list-results'),
+                  p = new URLSearchParams(),
+                  globalSearch = document.getElementById('search-input'),
+                  searchVal = globalSearch ? globalSearch.value : "";
+            
+            if(searchVal) p.set('q', searchVal);
+            p.set('sort', sortS.value);
+            if(sortS.value === '-play_count' && timeS) p.set('time_range', timeS.value);
+            if(page) p.set('page', page);
+            if(minS.value) p.set('year_min', minS.value);
+            if(maxS.value) p.set('year_max', maxS.value);
+            
+            const perP = document.getElementById('per-page-select')?.value || 20;
+            p.set('per_page', perP);
+
+            window.activeGenres.forEach(id => p.append('genre', id));
+
+            resC.style.opacity = '0.5';
+            const url = `{% url 'music:song_list' %}?${p.toString()}`;
+            
+            try {
+                const r = await fetch(url, { headers: {'X-Requested-With': 'XMLHttpRequest'} });
+                const txt = await r.text(), doc = new DOMParser().parseFromString(txt, 'text/html');
+                const newR = doc.getElementById('song-list-results');
+                if(newR) resC.innerHTML = newR.innerHTML;
+                
+                const newD = doc.getElementById('page-queue-data');
+                if(newD) document.getElementById('page-queue-data').textContent = newD.textContent;
+                
+                if(window.updateQueueFromJSON) window.updateQueueFromJSON();
+                history.replaceState(null, '', url);
+                window.renderActiveFilters();
+                if(window.syncListIcons) window.syncListIcons();
+            } catch(e) { console.error(e); }
+            finally { resC.style.opacity = '1'; }
+        };
+
+        window.removeFilter = (type, id) => {
+            if (type === 'year') {
+                minS.value = maxS.value = "";
+            } else if (type === 'genre') {
+                window.activeGenres.delete(id);
+            }
+            window.fetchFilteredResults(1);
+        };
+
+        window.renderActiveFilters = () => {
+            const container = document.getElementById('active-filters-container'),
+                  list = document.getElementById('active-pills-list');
+            if(!container || !list) return;
+
+            list.innerHTML = '';
+            
+            // Tylko lata w polu "Aktywne"
+            if(minS.value || maxS.value) {
+                list.insertAdjacentHTML('beforeend', `
+                    <div class="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-3 py-1.5 rounded-full text-[11px] font-bold border border-blue-500/20">
+                        <span>Lata: ${minS.value||'...'} - ${maxS.value||'...'}</span>
+                        <button onclick="window.removeFilter('year')" class="hover:text-white transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                `);
+            }
+
+            // Stylizacja przycisków gatunków (tych na górze)
+            const allPill = document.getElementById('genre-pill-all');
+            if (allPill) {
+                const isAllActive = window.activeGenres.size === 0;
+                allPill.classList.toggle('bg-primary', isAllActive);
+                allPill.classList.toggle('text-background-main', isAllActive);
+                allPill.classList.toggle('bg-background-element', !isAllActive);
+                allPill.classList.toggle('text-text-secondary', !isAllActive);
+                allPill.classList.toggle('text-black', isAllActive);
+                allPill.classList.toggle('bg-gray-800', !isAllActive);
+                allPill.classList.toggle('text-gray-400', !isAllActive);
+            }
+
+            document.querySelectorAll('.genre-pill').forEach(pill => {
+                const id = pill.id.replace('genre-pill-', '');
+                const active = window.activeGenres.has(id);
+                pill.classList.toggle('bg-primary', active);
+                pill.classList.toggle('text-background-main', active);
+                pill.classList.toggle('bg-background-element', !active);
+                pill.classList.toggle('text-text-secondary', !active);
+                pill.classList.toggle('text-black', active);
+                pill.classList.toggle('bg-gray-800', !active);
+                pill.classList.toggle('text-gray-400', !active);
+            });
+
+            // Kontener aktywnych filtrów pokazujemy tylko gdy są lata
+            const anyActive = minS.value || maxS.value;
+            container.classList.toggle('hidden', !anyActive);
+        };
+
+        document.addEventListener('turbo:load', () => {
+            const resultsContainer = document.getElementById('song-list-results');
+            if (!resultsContainer) return;
+            syncStateFromUrl();
+            if (minS) minS.value = window.activeYearMin;
+            if (maxS) maxS.value = window.activeYearMax;
+            updateQueueFromJSON();
+            window.renderActiveFilters();
+        });
+    })();
+</script>
+{% endblock %}

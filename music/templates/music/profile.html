@@ -1,0 +1,640 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Twój Profil - BeatHub{% endblock %}
+
+{% block content %}
+<style>
+    /* Styl Premium dla list utworów */
+    .song-row {
+        transition: background-color 0.2s ease;
+    }
+    .song-row:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    .song-row:first-child td:first-child { border-top-left-radius: 1.5rem; }
+    .song-row:first-child td:last-child { border-top-right-radius: 1.5rem; }
+    .song-row:last-child td:first-child { border-bottom-left-radius: 1.5rem; }
+    .song-row:last-child td:last-child { border-bottom-right-radius: 1.5rem; }
+    .song-row td:first-child { position: relative; }
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+    .song-row:first-child td:first-child::before { border-top-left-radius: 1.5rem; }
+    .song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
+
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+    .song-row:hover .equalyzer { display: none !important; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; }
+    .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
+    .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+    .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+    .equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+    @keyframes up-and-down { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+    .song-row td { border-bottom: 1px solid var(--border-main); }
+    .song-row:last-child td { border-bottom: 0; }
+    .song-row .cover-overlay { display: none !important; }
+    .song-row:hover .cover-overlay, .song-row.is-current .cover-overlay { display: flex !important; }
+
+    /* Modern Toggle Switch Style */    .toggle-switch-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 18px;
+        background: var(--background-element);
+        border: 1px solid var(--border-main);
+        border-radius: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .toggle-switch-container:hover {
+        background: var(--background-card);
+        border-color: var(--primary);
+        transform: translateY(-1px);
+    }
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 22px;
+        flex-shrink: 0;
+    }
+    .toggle-switch-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: var(--border-main);
+        transition: .3s;
+        border-radius: 22px;
+    }
+    .toggle-switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background-color: var(--text-muted);
+        transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 50%;
+    }
+    .toggle-switch-input {
+        display: none;
+    }
+    .toggle-switch-input:checked + .toggle-switch-slider {
+        background-color: var(--primary);
+    }
+    .toggle-switch-input:checked + .toggle-switch-slider:before {
+        transform: translateX(22px);
+        background-color: white;
+    }
+    .toggle-switch-label {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+    }
+
+    /* Level & XP Badge Styles */
+    .level-badge {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+        box-shadow: 0 4px 15px var(--primary-glow);
+    }
+    .xp-bar-container {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .xp-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+</style>
+<div class="px-2">
+    
+    <div class="mb-8">
+        <a href="{% url 'music:album_list' %}" onclick="window.history.back(); return false;" class="w-fit text-text-secondary hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-element hover:bg-primary/20 transition-colors border border-border-main shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do poprzedniej strony
+        </a>
+    </div>
+
+    <div class="flex items-center gap-6 mb-12">
+        <div class="flex-shrink-0">
+            <img src="{{ user.profile.avatar_url }}" alt="Twój Awatar" class="w-32 h-32 rounded-full border-4 border-border-main shadow-2xl object-cover ring-4 ring-white/5">
+        </div>
+        
+        <div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-primary">Twój Profil</span>
+                <button onclick="window.copyToClipboard(window.location.origin + '{% url 'music:user_profile' user.username %}', 'Link do Twojego profilu skopiowany!')" 
+                        class="text-text-muted hover:text-text-main transition-colors p-1" title="Kopiuj link do profilu">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                </button>
+            </div>
+            <h1 class="text-5xl font-black text-text-main mt-1 mb-2">{{ user_info.username }}</h1>
+            
+            <div class="flex items-center gap-4 mb-4">
+                {% with lvl=user_info.profile.get_level_data %}
+                <div class="flex items-center gap-3 bg-background-element px-4 py-2 rounded-2xl border border-border-main">
+                    <div class="level-badge px-3 py-1 rounded-lg text-background-main font-black text-xs uppercase tracking-wider">
+                        LVL {{ lvl.level }}
+                    </div>
+                    <div class="flex flex-col gap-1 w-40 md:w-56">
+                        <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-text-muted">
+                            <span>EXP: {{ lvl.current_xp_in_level }} / {{ lvl.required_xp_for_level }}</span>
+                            <span class="text-primary">{{ lvl.progress|floatformat:0 }}%</span>
+                        </div>
+                        <div class="xp-bar-container">
+                            <div class="xp-bar-fill" style="width: {{ lvl.progress }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+            </div>
+
+            <p class="text-text-muted">{{ g.dolaczyl|capfirst }}: <span class="text-text-secondary">{{ user_info.date_joined|date:"d M Y" }}</span></p>
+        </div>
+    </div>
+
+    <div class="bg-background-card rounded-3xl p-10 border border-border-main shadow-2xl backdrop-blur-sm">
+        <form method="post" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {% csrf_token %}
+            
+            <div class="col-span-1 md:col-span-2 border-b border-gray-700/50 pb-8 mb-6">
+                <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                    <div>
+                        <h2 class="text-4xl font-black text-text-main tracking-tight">Zaktualizuj profil</h2>
+                        <p class="text-text-secondary text-sm mt-2">Zarządzaj swoimi danymi i ustawieniami prywatności</p>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center gap-6 bg-background-element/40 p-4 rounded-3xl border border-border-main backdrop-blur-sm">
+                        <!-- Visibility Select -->
+                        {% for field in form %}
+                            {% if field.name == 'visibility' %}
+                                <div class="flex items-center gap-4 px-4">
+                                    <label class="text-[10px] text-text-muted font-black uppercase tracking-[0.2em] whitespace-nowrap">Widoczność</label>
+                                    <div class="min-w-[200px]">
+                                        {{ field }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
+                        <div class="w-px h-10 bg-border-main hidden md:block"></div>
+
+                        <!-- Privacy Toggles Group -->
+                        <div class="flex items-center gap-6 px-4">
+                            <label class="text-[10px] text-text-muted font-black uppercase tracking-[0.2em] whitespace-nowrap">Statystyki</label>
+                            <div class="flex flex-wrap items-center gap-3">
+                                {% for field in form %}
+                                    {% if field.name == 'show_profile_stats_publicly' or field.name == 'show_detailed_stats_publicly' %}
+                                        <div class="toggle-switch-container">
+                                            <span class="toggle-switch-label">
+                                                {% if field.name == 'show_profile_stats_publicly' %}Wykresy{% else %}Pełne dane{% endif %}
+                                            </span>
+                                            <label class="toggle-switch">
+                                                {{ field }}
+                                                <span class="toggle-switch-slider"></span>
+                                            </label>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% for field in form %}
+                {% if field.name != 'visibility' and field.name != 'show_profile_stats_publicly' and field.name != 'show_detailed_stats_publicly' %}
+                <div class="flex flex-col gap-2 {% if field.name == 'bio' %}col-span-1 md:col-span-2{% endif %}">
+                    <label class="text-sm text-text-muted font-medium">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <span class="text-red-400 text-xs mt-1">{{ field.errors|striptags }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="col-span-1 md:col-span-2 flex justify-end mt-8 border-t border-border-main pt-8">
+                <button type="submit" class="bg-primary hover:bg-primary-hover text-background-main font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-primary-glow/20">
+                    Zapisz zmiany
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- SEKTCJA STATYSTYK -->
+    {% if stats %}
+    <div class="mt-16 space-y-8">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+                <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="text-3xl font-black text-text-main">Twój Muzyczny Świat</h2>
+                <p class="text-text-muted text-sm">Podsumowanie Twojego gustu i aktywności</p>
+            </div>
+            <a href="{% url 'music:detailed_stats' user.username %}" class="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-bold rounded-xl border border-indigo-500/20 transition-all group">
+                Pełne statystyki
+                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+            </a>
+        </div>
+
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+            <div class="flex items-center gap-2 p-1 bg-background-element rounded-2xl border border-border-main">
+                <button onclick="changeStatsRange('week', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-text-secondary hover:text-text-main">7 Dni</button>
+                <button onclick="changeStatsRange('month', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary-glow/20">30 Dni</button>
+                <button onclick="changeStatsRange('year', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-text-muted hover:text-text-main">Rok</button>
+                <button onclick="changeStatsRange('all', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-text-muted hover:text-text-main">Zawsze</button>
+                <button onclick="toggleCustomRange()" class="px-4 py-2 rounded-xl text-xs font-bold transition-all text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/10">Własny</button>
+            </div>
+
+            <div id="custom-range-picker" class="hidden flex items-center gap-4 bg-background-element p-3 rounded-2xl border border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] text-text-muted uppercase font-black">Od</label>
+                    <input type="date" id="start-date" class="bg-transparent border-none text-text-main text-xs focus:ring-0 p-0">
+                </div>
+                <div class="w-px h-8 bg-border-main"></div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] text-text-muted uppercase font-black">Do</label>
+                    <input type="date" id="end-date" class="bg-transparent border-none text-text-main text-xs focus:ring-0 p-0">
+                </div>
+                <button onclick="applyCustomRange()" class="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-colors">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <!-- Karta Podsumowania Gatunków -->
+            <div class="lg:col-span-1 bg-background-card rounded-3xl p-8 border border-border-main flex flex-col items-center text-center space-y-6 backdrop-blur-sm relative overflow-hidden group">
+                <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <div class="relative">
+                    <div class="text-sm font-bold text-text-muted uppercase tracking-widest mb-2">Dominujący Gatunek</div>
+                    <div id="topMoodText" class="text-4xl font-black text-text-main bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-400">
+                        {{ stats.top_mood }}
+                    </div>
+                </div>
+                <div class="relative w-40 h-40 mx-auto mb-2">
+                    <canvas id="moodChart"></canvas>
+                </div>
+                <!-- Legenda i Pasek (Dynamiczne) -->
+                <div id="moodLegend" class="w-full flex flex-wrap justify-center gap-3 mb-6"></div>
+                <div class="w-full relative px-2 mb-6">
+                    <div id="moodBar" class="h-2 w-full rounded-full overflow-hidden flex bg-background-element"></div>
+                    <div id="moodBarTooltip" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-background-card backdrop-blur-md text-[10px] font-bold text-text-main rounded-xl border border-border-main opacity-0 pointer-events-none transition-all duration-200 z-[200] whitespace-nowrap shadow-2xl scale-95 translate-y-2"></div>
+                </div>
+                <div class="text-sm text-text-muted">
+                    Odtworzenia w okresie: <span id="totalPlaysText" class="text-text-secondary font-bold">{{ stats.total_plays_period }}</span>
+                </div>
+            </div>
+
+            <!-- Karta Aktywności -->
+            <div class="lg:col-span-2 bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="text-sm font-bold text-text-muted uppercase tracking-widest">Aktywność Słuchania</div>
+                    <div id="rangeLabel" class="text-[10px] text-text-muted uppercase tracking-widest px-3 py-1 rounded-full bg-background-element border border-border-main">Ostatnie 30 dni</div>
+                </div>
+                <div class="h-64 w-full relative">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Przechowywanie instancji w window, aby Turbo ich nie duplikowało i można było je niszczyć
+        window.moodChartInstance = window.moodChartInstance || null;
+        window.activityChartInstance = window.activityChartInstance || null;
+
+        function initCharts(moodLabels, moodData, activityLabels, activityData) {
+            // Zawsze czyść stare instancje na początku
+            if (window.moodChartInstance) { window.moodChartInstance.destroy(); window.moodChartInstance = null; }
+            if (window.activityChartInstance) { window.activityChartInstance.destroy(); window.activityChartInstance = null; }
+
+            var moodCtx = document.getElementById('moodChart');
+            var legendContainer = document.getElementById('moodLegend');
+            var barContainer = document.getElementById('moodBar');
+            
+            // Zawsze czyść kontenery na początku
+            if (legendContainer) legendContainer.innerHTML = '';
+            if (barContainer) barContainer.innerHTML = '';
+
+            if (moodCtx && moodLabels && moodLabels.length > 0) {
+                var moodColors = ['var(--primary)', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#a855f7'];
+                
+                window.moodChartInstance = new Chart(moodCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: moodLabels,
+                        datasets: [{
+                            data: moodData,
+                            backgroundColor: moodColors,
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: { 
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: { enabled: true }
+                        }, 
+                        cutout: '75%', 
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+
+                // Generowanie legendy i paska
+                try {
+                    if (legendContainer && barContainer) {
+                        var total = Array.isArray(moodData) ? moodData.reduce((a, b) => a + b, 0) : 0;
+                        
+                        if (Array.isArray(moodLabels)) {
+                            moodLabels.forEach((label, i) => {
+                                var count = moodData[i];
+                                var color = moodColors[i % moodColors.length];
+                                var percent = total > 0 ? (count / total * 100).toFixed(1) : 0;
+                                
+                                // Tag legendy
+                                var tag = document.createElement('div');
+                                tag.className = "flex flex-col items-center group cursor-default";
+                                tag.innerHTML = `
+                                    <div class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all" 
+                                         style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40">
+                                        ${label}
+                                    </div>
+                                    <div class="text-[9px] text-gray-500 mt-1 font-bold group-hover:text-gray-300 transition-colors">
+                                        <span style="color: ${color}">${count}</span> Przesłuchań
+                                    </div>
+                                `;
+                                legendContainer.appendChild(tag);
+                                
+                                // Segment paska
+                                if (percent > 0) {
+                                    var segment = document.createElement('div');
+                                    segment.style.width = `${percent}%`;
+                                    segment.style.backgroundColor = color;
+                                    segment.className = "h-full transition-all duration-300 ease-out cursor-help hover:brightness-125";
+                                    
+                                    // Tooltip logic
+                                    var tooltip = document.getElementById('moodBarTooltip');
+                                    segment.onmouseenter = (e) => {
+                                        if (tooltip) {
+                                            tooltip.textContent = `${label}: ${percent}% (${count} odtworzeń)`;
+                                            tooltip.style.opacity = '1';
+                                            tooltip.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+                                            
+                                            // Dynamic positioning relative to segment
+                                            var rect = segment.getBoundingClientRect();
+                                            var parentRect = barContainer.getBoundingClientRect();
+                                            var center = rect.left + rect.width / 2 - parentRect.left;
+                                            tooltip.style.left = `${center}px`;
+                                        }
+                                    };
+                                    segment.onmouseleave = () => {
+                                        if (tooltip) {
+                                            tooltip.style.opacity = '0';
+                                            tooltip.style.transform = 'translateX(-50%) translateY(8px) scale(0.95)';
+                                        }
+                                    };
+                                    
+                                    barContainer.appendChild(segment);
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Błąd przy generowaniu legendy:", e);
+                }
+            }
+
+            var activityCtx = document.getElementById('activityChart');
+            if (activityCtx && activityLabels && activityLabels.length > 0) {
+                window.activityChartInstance = new Chart(activityCtx, {
+                    type: 'line',
+                    data: {
+                        labels: activityLabels,
+                        datasets: [{
+                            label: 'Odtworzenia',
+                            data: activityData,
+                            borderColor: 'var(--primary)',
+                            backgroundColor: 'var(--primary-glow-light)',
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: 'var(--primary)',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: { enabled: true }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'var(--border-main)' }, ticks: { color: 'var(--text-muted)', stepSize: 1 } },
+                            x: { grid: { display: false }, ticks: { color: 'var(--text-muted)' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        async function fetchStats(start = null, end = null, label = "Wybrany okres") {
+            var rangeLabel = document.getElementById('rangeLabel');
+            rangeLabel.innerHTML = '<span class="animate-pulse">Ładowanie...</span>';
+            
+            var url = '{% url "music:get_stats" %}';
+            if (start && end) url += `?start=${start}&end=${end}`;
+            
+            try {
+                var response = await fetch(url);
+                var data = await response.json();
+                if (data.status === 'success') {
+                    initCharts(
+                        JSON.parse(data.stats.mood_labels),
+                        JSON.parse(data.stats.mood_data),
+                        JSON.parse(data.stats.activity_labels),
+                        JSON.parse(data.stats.activity_data)
+                    );
+                    document.getElementById('topMoodText').textContent = data.stats.top_mood;
+                    document.getElementById('totalPlaysText').textContent = data.stats.total_plays_period;
+                    rangeLabel.textContent = label;
+                }
+            } catch (e) {
+                console.error("Błąd pobierania statystyk:", e);
+                rangeLabel.textContent = "Błąd ładowania";
+            }
+        }
+
+        function changeStatsRange(range, btn) {
+            document.querySelectorAll('.range-btn').forEach(b => {
+                b.classList.remove('bg-primary', 'text-background-main', 'shadow-lg', 'shadow-primary-glow/20');
+                b.classList.add('text-text-secondary', 'hover:text-text-main');
+            });
+            btn.classList.add('bg-primary', 'text-background-main', 'shadow-lg', 'shadow-primary-glow/20');
+            btn.classList.remove('text-text-secondary', 'hover:text-text-main');
+            
+            var picker = document.getElementById('custom-range-picker');
+            if (picker) picker.classList.add('hidden');
+
+            var now = new Date();
+            var start = new Date();
+            var label = "";
+
+            if (range === 'week') { start.setDate(now.getDate() - 7); label = "Ostatnie 7 dni"; }
+            else if (range === 'month') { start.setDate(now.getDate() - 30); label = "Ostatnie 30 dni"; }
+            else if (range === 'year') { start.setFullYear(now.getFullYear() - 1); label = "Ostatni rok"; }
+            else if (range === 'all') { start = new Date('2024-01-01'); label = "Od początku"; }
+
+            fetchStats(start.toISOString().split('T')[0], now.toISOString().split('T')[0], label);
+        }
+
+        function toggleCustomRange() {
+            var picker = document.getElementById('custom-range-picker');
+            if (picker) picker.classList.toggle('hidden');
+        }
+
+        function applyCustomRange() {
+            var start = document.getElementById('start-date').value;
+            var end = document.getElementById('end-date').value;
+            if (start && end) {
+                fetchStats(start, end, `${start} - ${end}`);
+            }
+        }
+
+        function runInit() {
+            requestAnimationFrame(() => {
+                if (document.getElementById('moodChart')) {
+                    initCharts(
+                        {{ stats.mood_labels|safe }},
+                        {{ stats.mood_data|safe }},
+                        {{ stats.activity_labels|safe }},
+                        {{ stats.activity_data|safe }}
+                    );
+                }
+            });
+        }
+
+        // Turbo wykonuje skrypty w body przy każdym przejściu, więc wywołujemy bezpośrednio
+        runInit();
+    </script>
+    {% endif %}
+
+    <!-- Publiczne Playlisty -->
+    {% if public_playlists %}
+        <div class="mb-16 mt-16">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-3xl font-black text-white">Twoje Publiczne Playlisty</h2>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {% for playlist in public_playlists %}
+                    {% include 'music/playlist_card.html' with playlist=playlist %}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mt-16 mb-16">
+        <!-- Ulubieni Wykonawcy -->
+        {% include 'music/partials/favorite_artists_list.html' with favorite_artists=favorite_artists title="Ulubieni Wykonawcy" %}
+
+        <!-- Ostatnio Polubione -->
+        {% include 'music/partials/recent_liked_songs_list.html' with recent_liked_songs=recent_liked_songs title="Ostatnio Polubione Utwory" %}
+    </div>
+
+    <script>
+        (function() {
+            {% if form.errors %}
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        if (window.showDynamicToast) window.showDynamicToast("{{ error|escapejs }}", false);
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    if (window.showDynamicToast) window.showDynamicToast("{{ error|escapejs }}", false);
+                {% endfor %}
+            {% endif %}
+        })();
+    </script>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.pageQueue = [
+        {% for song in recent_liked_songs %}
+        { 
+            id: "{{ song.id }}", 
+            url: "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}", 
+            title: "{{ song.title|escapejs }}", 
+            artist: "{{ song.album.artist.nickname|escapejs }}", 
+            cover: "{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}",
+            album_slug: "{{ song.album.slug }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    (function() {
+        var visibilitySelect = document.getElementById('id_visibility');
+        
+        if (visibilitySelect && !visibilitySelect.dataset.bound) {
+            visibilitySelect.dataset.bound = true;
+            // Zapamiętaj poprzednią wartość na wypadek błędu
+            var lastValue = visibilitySelect.value;
+
+            visibilitySelect.addEventListener('change', async function() {
+                var newValue = this.value;
+                var bioInput = document.getElementById('id_bio');
+                var bio = bioInput ? bioInput.value : '';
+                var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                try {
+                    var response = await fetch("{% url 'music:toggle_profile_privacy' %}", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+                        body: JSON.stringify({ visibility: newValue, bio: bio })
+                    });
+                    var data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        lastValue = newValue;
+                        if (window.showDynamicToast) window.showDynamicToast(data.message, true);
+                    } else {
+                        // Cofnij zmianę wyboru
+                        this.value = lastValue;
+                        if (window.showDynamicToast) window.showDynamicToast(data.message, false);
+                    }
+                } catch (error) {
+                    this.value = lastValue;
+                    if (window.showDynamicToast) window.showDynamicToast("Błąd serwera. Spróbuj ponownie.", false);
+                }
+            });
+        }
+
+    })();
+</script>
+{% endblock %}

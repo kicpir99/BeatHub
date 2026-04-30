@@ -1,0 +1,881 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statystyki - {{ profile_user.username }} | BeatHub{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
+        <div class="flex items-center gap-6">
+            <div class="relative group">
+                <img src="{{ profile_user.profile.avatar_url }}" alt="Avatar" class="w-24 h-24 rounded-2xl border-2 border-border-main shadow-xl object-cover group-hover:border-primary transition-colors">
+                <div class="absolute -bottom-2 -right-2 bg-primary p-1.5 rounded-lg shadow-lg">
+                    <svg class="w-4 h-4 text-background-main" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+            </div>
+            <div>
+                <h1 class="text-4xl font-black text-text-main mb-1">Centrum Statystyk</h1>
+                <p class="text-text-secondary">Analiza profilu <span class="text-primary font-bold">@{{ profile_user.username }}</span></p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            {% if is_own_profile %}
+            <form action="{% url 'music:toggle_stats_visibility' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="flex items-center gap-3 px-6 py-3 {% if profile_user.profile.show_detailed_stats_publicly %}bg-purple-600/20 text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-600/30{% else %}bg-background-element text-text-secondary border-border-main hover:bg-background-card{% endif %} rounded-2xl font-bold transition-all border shadow-lg group">
+                    {% if profile_user.profile.show_detailed_stats_publicly %}
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        Dostęp: Publiczny
+                    {% else %}
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"></path></svg>
+                        Dostęp: Prywatny
+                    {% endif %}
+                </button>
+            </form>
+            {% endif %}
+
+            <a href="{% url 'music:user_profile' profile_user.username %}" class="flex items-center gap-3 px-6 py-3 bg-background-element hover:bg-background-card rounded-2xl text-text-main font-bold transition-all border border-border-main shadow-lg group">
+                <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Powrót do profilu
+            </a>
+        </div>
+    </div>
+
+    {% if not can_view_stats %}
+        <div class="bg-background-card rounded-3xl p-20 border border-border-main flex flex-col items-center justify-center text-center backdrop-blur-sm">
+            <div class="p-8 bg-background-main rounded-full mb-8 text-yellow-500/20 border border-yellow-500/10">
+                <svg class="w-20 h-20 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h2 class="text-3xl font-black text-text-main mb-4">Statystyki Prywatne</h2>
+            <p class="text-text-secondary max-w-md">Użytkownik zdecydował się nie udostępniać swoich szczegółowych statystyk publicznie.</p>
+        </div>
+    {% else %}
+        <!-- 1. Stats Grid (Summary Tiles) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
+            <!-- Total Plays -->
+            <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-lg">
+                <div class="absolute -right-8 -bottom-8 text-primary/5 group-hover:text-primary/10 transition-colors">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                </div>
+                <div class="relative">
+                    <p class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Wszystkie odtworzenia</p>
+                    <h3 class="text-4xl font-black text-text-main">{{ total_plays_count }}</h3>
+                </div>
+            </div>
+
+            <!-- Total Hours -->
+            <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-lg">
+                <div class="absolute -right-8 -bottom-8 text-indigo-500/5 group-hover:text-indigo-500/10 transition-colors">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                </div>
+                <div class="relative">
+                    <p class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Czas słuchania</p>
+                    <h3 class="text-4xl font-black text-text-main">{{ total_hours_all }} <span class="text-lg font-normal text-text-muted">h</span></h3>
+                </div>
+            </div>
+
+            <!-- Unique Artists -->
+            <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-lg">
+                <div class="absolute -right-8 -bottom-8 text-blue-500/5 group-hover:text-blue-500/10 transition-colors">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c-4.97 0-9 4.03-9 9 0 4.17 2.84 7.67 6.69 8.69L12 22l2.31-2.31C18.16 18.67 21 15.17 21 11c0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 3.11-2.03 5.75-4.84 6.63l-2.16 2.16-2.16-2.16C7.03 16.75 5 14.11 5 11c0-3.87 3.13-7 7-7z"/></svg>
+                </div>
+                <div class="relative flex items-center gap-4">
+                    <div class="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-black text-text-main leading-none">{{ unique_artists_count }}</h3>
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1">Unikalnych artystów</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unique Songs -->
+            <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-lg">
+                <div class="absolute -right-8 -bottom-8 text-pink-500/5 group-hover:text-pink-500/10 transition-colors">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                </div>
+                <div class="relative flex items-center gap-4">
+                    <div class="p-3 bg-pink-500/10 rounded-2xl border border-pink-500/20">
+                        <svg class="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-black text-text-main leading-none">{{ unique_songs_count }}</h3>
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1">Unikalnych piosenek</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Followed Artists -->
+            <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-lg">
+                <div class="absolute -right-8 -bottom-8 text-amber-500/5 group-hover:text-amber-500/10 transition-colors">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                </div>
+                <div class="relative flex items-center gap-4">
+                    <div class="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                        <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-black text-text-main leading-none">{{ followed_artists_count }}</h3>
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1">Obserwowanych artystów</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Banner with Analytics Tip -->
+        <div class="mb-16 bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-xl">
+            <div class="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-transparent"></div>
+            <div class="flex flex-col md:flex-row items-center gap-8 relative">
+                <div class="p-5 bg-yellow-500/10 rounded-3xl border border-yellow-500/20 shrink-0 shadow-lg shadow-yellow-500/5 group-hover:scale-110 transition-transform duration-500">
+                    {% if random_insight.icon == 'calendar' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    {% elif random_insight.icon == 'moon' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    {% elif random_insight.icon == 'sun' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    {% elif random_insight.icon == 'clock' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    {% elif random_insight.icon == 'sparkles' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-7.714 2.143L11 21l-2.286-6.857L1 12l7.714-2.143L11 3z"></path></svg>
+                    {% elif random_insight.icon == 'map' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    {% elif random_insight.icon == 'heart' %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                    {% else %}
+                        <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    {% endif %}
+                </div>
+                <div class="text-center md:text-left">
+                    <p class="text-xs font-bold text-yellow-500/80 uppercase tracking-[0.3em] mb-2">Twoja analityka: {{ random_insight.title }}</p>
+                    <h4 class="text-2xl font-black text-text-main leading-tight mb-2">{{ random_insight.desc }}</h4>
+                    <p class="text-text-secondary text-sm">Odkrywaj wzorce w swoim słuchaniu, aby lepiej rozumieć swój gust.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. ARTISTS SECTION (Most Important) -->
+        <div class="mt-12 mb-20">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 px-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-4 mb-2">
+                        <h2 class="text-3xl font-black text-text-main">Top Artyści</h2>
+                        {% if artist_stats|length > 4 %}
+                        <button id="artist-toggle-btn" onclick="toggleArtistsVisibility()" class="px-4 py-1.5 bg-background-main/50 hover:bg-background-main text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/20 transition-all shadow-sm">
+                            Pokaż wszystkich ({{ artist_stats|length }})
+                        </button>
+                        {% endif %}
+                    </div>
+                    <p class="text-text-secondary text-sm">Twórcy, którzy zdefiniowali Twoje brzmienie</p>
+                </div>
+
+                <div class="flex items-center gap-2 p-1.5 bg-background-element/80 rounded-2xl border border-border-main shadow-inner">
+                    <button onclick="sortArtists('count')" id="btn-artist-count" class="px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20">
+                        Ilość
+                    </button>
+                    <button onclick="sortArtists('time')" id="btn-artist-time" class="px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main">
+                        Przesłuchany czas
+                    </button>
+                </div>
+            </div>
+
+            <div id="artist-container" class="grid grid-cols-1 lg:grid-cols-2 gap-10 artists-limited">
+                {% for artist in artist_stats %}
+                <div class="artist-card bg-background-card rounded-[3rem] p-10 border border-border-main backdrop-blur-sm relative overflow-hidden group transition-all hover:border-primary/30 hover:bg-background-element shadow-2xl"
+                     data-count="{{ artist.total_plays }}" data-time="{{ artist.total_sec }}">
+                    <div class="relative h-full flex flex-col">
+                        <div class="flex items-center justify-between mb-8">
+                            <a href="{% url 'music:artist_detail' artist.slug %}" class="group/title">
+                                <h3 class="text-4xl font-black text-text-main group-hover/title:text-primary transition-colors">{{ artist.nickname }}</h3>
+                            </a>
+                            <div class="artist-rank w-12 h-12 rounded-full bg-background-main border border-border-main flex items-center justify-center text-text-muted font-bold text-lg">
+                                {{ forloop.counter }}
+                            </div>
+                        </div>
+
+                        <div class="flex gap-8 flex-1">
+                            <!-- Photo -->
+                            <a href="{% url 'music:artist_detail' artist.slug %}" class="w-40 h-52 flex-shrink-0 rounded-2xl overflow-hidden border border-border-main shadow-2xl block hover:border-primary/50 transition-all">
+                                {% if artist.photo %}
+                                    <img src="{{ MEDIA_URL }}{{ artist.photo }}" alt="{{ artist.nickname }}" class="w-full h-full object-cover">
+                                {% else %}
+                                    <div class="w-full h-full bg-background-main flex items-center justify-center text-text-muted">
+                                        <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                                    </div>
+                                {% endif %}
+                            </a>
+
+                            <div class="flex-1 flex flex-col justify-between">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-3xl font-black text-text-main mb-0.5">{{ artist.total_plays }}</p>
+                                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Ilość odsłuchań</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-3xl font-black text-text-main mb-0.5 leading-tight">{{ artist.display_time }}</p>
+                                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Czas słuchania</p>
+                                    </div>
+                                </div>
+
+                                {% if artist.top_songs %}
+                                <div class="mt-4 pt-6 border-t border-border-main">
+                                    <div class="grid grid-cols-4 gap-3">
+                                        {% for song in artist.top_songs %}
+                                        <a href="{% url 'music:album_detail' song.song__album__slug %}" class="aspect-square rounded-xl overflow-hidden border border-border-main shadow-lg relative group/cover bg-background-main block hover:scale-110 hover:border-primary/50 transition-all duration-300" title="{{ song.song__title }}">
+                                            {% if song.song__album__cover %}
+                                                <img src="{{ MEDIA_URL }}{{ song.song__album__cover }}" alt="{{ song.song__title }}" class="w-full h-full object-cover">
+                                            {% else %}
+                                                <div class="w-full h-full flex items-center justify-center">
+                                                    <svg class="w-5 h-5 text-text-muted" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                                                </div>
+                                            {% endif %}
+                                            <div class="absolute inset-0 bg-background-main/40 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <svg class="w-5 h-5 text-text-main" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                            </div>
+                                        </a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 3. GENRE SECTION -->
+        <div class="mt-12 mb-20">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 px-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-4 mb-2">
+                        <h2 class="text-3xl font-black text-text-main">Gatunki</h2>
+                        {% if genre_stats|length > 4 %}
+                        <button id="genre-toggle-btn" onclick="toggleGenresVisibility()" class="px-4 py-1.5 bg-background-main/50 hover:bg-background-main text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/20 transition-all shadow-sm">
+                            Pokaż wszystkie ({{ genre_stats|length }})
+                        </button>
+                        {% endif %}
+                    </div>
+                    <p class="text-text-secondary text-sm">Twój muzyczny ekosystem w podziale na style</p>
+                </div>
+                
+                <div class="flex items-center gap-2 p-1.5 bg-background-element/80 rounded-2xl border border-border-main shadow-inner">
+                    <button onclick="sortGenres('count')" id="btn-genre-count" class="px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20">
+                        Ilość
+                    </button>
+                    <button onclick="sortGenres('time')" id="btn-genre-time" class="px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main">
+                        Przesłuchany czas
+                    </button>
+                </div>
+            </div>
+            <div id="genre-container" class="grid grid-cols-1 lg:grid-cols-2 gap-10 genres-limited">
+                {% for genre in genre_stats %}
+                <div class="genre-card bg-background-card rounded-[3rem] p-10 border border-border-main backdrop-blur-sm relative overflow-hidden group transition-all hover:border-primary/30 hover:bg-background-element shadow-2xl"
+                     data-count="{{ genre.unique_count }}" data-time="{{ genre.total_sec }}">
+                    
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-2xl group-hover:from-primary/20 transition-all"></div>
+                    
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-8">
+                            <h3 class="text-4xl font-black text-text-main group-hover:text-primary transition-colors">{{ genre.name }}</h3>
+                            <div class="genre-rank w-12 h-12 rounded-full bg-background-main border border-border-main flex items-center justify-center text-text-muted font-bold text-lg">
+                                {{ forloop.counter }}
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-8 mb-6">
+                            <div>
+                                <p class="text-4xl font-black text-text-main mb-1">{{ genre.unique_count }}</p>
+                                <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Piosenek</p>
+                            </div>
+                            <div>
+                                <p class="text-4xl font-black text-text-main mb-1 leading-tight">{{ genre.display_time }}</p>
+                                <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Czas słuchania</p>
+                            </div>
+                        </div>
+
+                        {% if genre.top_albums %}
+                        <div class="pt-6 border-t border-border-main">
+                            <p class="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em] mb-4">Najczęściej słuchane albumy</p>
+                            <div class="grid grid-cols-4 gap-3">
+                                {% for album in genre.top_albums %}
+                                <a href="{% url 'music:album_detail' album.slug %}" class="aspect-square rounded-2xl overflow-hidden border border-border-main shadow-2xl hover:scale-110 hover:border-primary/50 transition-all duration-300 cursor-pointer relative group/cover bg-background-main" title="{{ album.title }}">
+                                    {% if album.cover %}
+                                        <img src="{{ MEDIA_URL }}{{ album.cover }}" alt="{{ album.title }}" class="w-full h-full object-cover">
+                                    {% else %}
+                                        <div class="w-full h-full flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-text-muted" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-7c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5 2.5-1.12 2.5-2.5-1.12-2.5-2.5-2.5z"/></svg>
+                                        </div>
+                                    {% endif %}
+                                    <div class="absolute inset-0 bg-background-main/40 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-text-main" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 4. LISTENING ACTIVITY (Yearly Charts) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mt-12">
+            <!-- LISTENING YEAR CHART -->
+            <div class="bg-background-card rounded-[3rem] p-10 border border-border-main backdrop-blur-sm shadow-xl relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-tr from-pink-500/5 to-transparent"></div>
+                <div class="relative">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                        <h2 id="listening-title" class="text-2xl font-black text-text-main">Rok przesłuchania</h2>
+                        <div class="flex items-center gap-1 p-1 bg-background-main/60 rounded-xl border border-border-main">
+                            <button onclick="resetListeningChart()" id="btn-listening-reset" class="hidden px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-main bg-background-element hover:bg-background-card mr-1 border border-border-main">
+                                ← Powrót
+                            </button>
+                            <button onclick="toggleListeningChartMode('count')" id="btn-listening-count" class="px-4 py-2 rounded-lg text-xs font-bold transition-all bg-primary text-background-main">Piosenek</button>
+                            <button onclick="toggleListeningChartMode('hours')" id="btn-listening-hours" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-muted hover:text-text-main">Godzin</button>
+                        </div>
+                    </div>
+                    <div class="h-[350px] w-full">
+                        <canvas id="listeningLineChart"></canvas>
+                    </div>
+                    <p id="listening-tip" class="text-center text-[10px] text-text-muted mt-4 uppercase tracking-[0.2em]">Kliknij w kropkę, aby zobaczyć statystyki miesięczne</p>
+                </div>
+            </div>
+
+            <!-- RELEASE YEAR CHART -->
+            <div class="bg-background-card rounded-[3rem] p-10 border border-border-main backdrop-blur-sm shadow-xl relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-transparent"></div>
+                <div class="relative">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                        <h2 class="text-2xl font-black text-text-main">Rok wydania</h2>
+                        <div class="flex items-center gap-1 p-1 bg-background-main/60 rounded-xl border border-border-main">
+                            <button onclick="toggleYearChartMode('count')" id="btn-year-count" class="px-4 py-2 rounded-lg text-xs font-bold transition-all bg-primary text-background-main">Piosenek</button>
+                            <button onclick="toggleYearChartMode('hours')" id="btn-year-hours" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-muted hover:text-text-main">Godzin</button>
+                        </div>
+                    </div>
+                    <div class="h-[350px] w-full">
+                        <canvas id="yearLineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. DURATION DISTRIBUTION -->
+        <div class="mt-12 bg-background-card rounded-[3rem] p-12 border border-border-main backdrop-blur-sm shadow-2xl relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
+            
+            <div class="relative">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                    <div>
+                        <h2 class="text-3xl font-black text-text-main mb-2">Rozkład Długości Utworów</h2>
+                        <p class="text-text-secondary">Analiza preferowanej struktury czasowej Twojej muzyki</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 p-1.5 bg-background-element/80 rounded-2xl border border-border-main shadow-inner">
+                        <button onclick="toggleChartMode('count')" id="btn-count" class="px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20">
+                            Ilość utworów
+                        </button>
+                        <button onclick="toggleChartMode('hours')" id="btn-hours" class="px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main">
+                            Suma godzin
+                        </button>
+                    </div>
+                </div>
+
+                <div class="h-[450px] w-full">
+                    <canvas id="durationBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. STATS TABLE (Bottom) -->
+        <div class="mt-12 bg-background-card rounded-[3rem] border border-border-main backdrop-blur-sm overflow-hidden shadow-xl">
+            <div class="p-10 border-b border-border-main">
+                <h2 class="text-2xl font-black text-text-main">Szczegółowe Zestawienie Roczne</h2>
+                <p class="text-text-secondary">Podsumowanie Twojej aktywności w każdym roku</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-background-main/50 text-text-muted text-xs font-bold uppercase tracking-widest">
+                            <th class="px-10 py-6">Rok słuchania</th>
+                            <th class="px-10 py-6">Odtworzeń (łącznie)</th>
+                            <th class="px-10 py-6">Unikalne piosenki</th>
+                            <th class="px-10 py-6">Czas słuchania</th>
+                            <th class="px-10 py-6">Udział w aktywności</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-text-secondary divide-y divide-border-main">
+                        {% for row in listening_table %}
+                        <tr class="hover:bg-background-element/50 transition-colors group">
+                            <td class="px-10 py-6">
+                                <span class="text-lg font-bold text-text-main">{{ row.year }}</span>
+                            </td>
+                            <td class="px-10 py-6">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-mono text-primary font-bold">{{ row.count }}</span>
+                                    <span class="text-text-muted text-xs italic">razy</span>
+                                </div>
+                            </td>
+                            <td class="px-10 py-6">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-mono text-pink-500 font-bold">{{ row.unique }}</span>
+                                    <span class="text-text-muted text-xs italic">utworów</span>
+                                </div>
+                            </td>
+                            <td class="px-10 py-6">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-mono text-indigo-500 font-bold">{{ row.hours }}</span>
+                                    <span class="text-text-muted text-xs italic">h</span>
+                                </div>
+                            </td>
+                            <td class="px-10 py-6" title="{% if total_plays_count > 0 %}{% widthratio row.count total_plays_count 100 %}{% else %}0{% endif %}% udziału w całości">
+                                <div class="flex items-center gap-2">
+                                    <div class="h-1.5 w-24 bg-background-element rounded-full overflow-hidden">
+                                        <div class="h-full bg-gradient-to-r from-primary to-indigo-500 rounded-full" style="width: {% if total_plays_count > 0 %}{% widthratio row.count total_plays_count 100 %}{% else %}0{% endif %}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+
+<script>
+    // Helper to get CSS variables
+    function getCSSVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function getChartTheme() {
+        const isLight = document.documentElement.classList.contains('light');
+        return {
+            text: getCSSVar('--text-main') || (isLight ? '#1f2937' : '#f3f4f6'),
+            muted: getCSSVar('--text-muted') || (isLight ? '#6b7280' : '#9ca3af'),
+            border: getCSSVar('--border-main') || (isLight ? '#e5e7eb' : '#374151'),
+            primary: getCSSVar('--primary') || '#ef4444',
+            background: getCSSVar('--background-main') || (isLight ? '#f9fafb' : '#0f172a'),
+            grid: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'
+        };
+    }
+    
+    var barChart, yearChart, listeningChart;
+    var currentYearMode = 'year'; 
+    var currentListeningYear = null;
+    var currentMode = 'count';
+    
+    // Oryginalne dane (z Django)
+    var originalLabels = {{ listening_labels|safe }};
+    var originalCounts = {{ listening_counts|safe }};
+    var originalHours = {{ listening_hours|safe }};
+
+    var currentLabels = [...originalLabels];
+    var currentCounts = [...originalCounts];
+    var currentHours = [...originalHours];
+
+    // Data for Duration Chart
+    var durationLabels = {{ duration_labels|safe }};
+    var durationCounts = {{ duration_counts|safe }};
+    var durationHours = {{ duration_hours|safe }};
+
+    // Data for Release Year Chart
+    var yearLabels = {{ year_labels|safe }};
+    var yearCounts = {{ year_counts|safe }};
+    var yearHours = {{ year_hours|safe }};
+
+    function initBarChart(mode = 'count') {
+        var ctx = document.getElementById('durationBarChart');
+        if (!ctx) return;
+        if (barChart) barChart.destroy();
+
+        const theme = getChartTheme();
+        var isCount = mode === 'count';
+        var data = isCount ? durationCounts : durationHours;
+        var color = isCount ? theme.primary : '#6366f1';
+        var unit = isCount ? ' szt.' : ' h';
+
+        barChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: durationLabels,
+                datasets: [{
+                    label: isCount ? 'Liczba utworów' : 'Suma godzin',
+                    data: data,
+                    backgroundColor: color + '33',
+                    borderColor: color,
+                    borderWidth: 2,
+                    borderRadius: 12,
+                    borderSkipped: false,
+                    hoverBackgroundColor: color
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: theme.grid, drawBorder: false }, ticks: { color: theme.muted } },
+                    x: { grid: { display: false }, ticks: { color: theme.text, font: { weight: 'bold' } } }
+                }
+            }
+        });
+    }
+
+    function initYearChart(mode = 'count') {
+        var ctx = document.getElementById('yearLineChart');
+        if (!ctx) return;
+        if (yearChart) yearChart.destroy();
+
+        const theme = getChartTheme();
+        var isCount = mode === 'count';
+        var data = isCount ? yearCounts : yearHours;
+        var color = isCount ? theme.primary : '#818cf8';
+
+        yearChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: yearLabels,
+                datasets: [{
+                    label: isCount ? 'Piosenki' : 'Godziny',
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '15',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: color
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: theme.grid, drawBorder: false }, ticks: { color: theme.muted } },
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { 
+                            color: theme.text,
+                            font: { weight: 'bold' },
+                            maxRotation: 45,
+                            minRotation: 45
+                        } 
+                    }
+                }
+            }
+        });
+    }
+
+    function initListeningChart(mode = 'count') {
+        var ctx = document.getElementById('listeningLineChart');
+        if (!ctx) return;
+        if (listeningChart) listeningChart.destroy();
+
+        const theme = getChartTheme();
+        currentMode = mode;
+        var isCount = mode === 'count';
+        var data = isCount ? currentCounts : currentHours;
+        var color = isCount ? theme.primary : '#ec4899';
+
+        listeningChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: currentLabels,
+                datasets: [{
+                    label: isCount ? 'Piosenki' : 'Godziny',
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '15',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: color
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cursor: 'pointer',
+                onHover: (event, chartElement, chart) => {
+                    var xAxis = chart.scales.x;
+                    var isOverLabel = event.y >= xAxis.top && event.y <= xAxis.bottom;
+                    var isOverPoint = chartElement.length > 0;
+                    
+                    event.native.target.style.cursor = (isOverPoint || isOverLabel) && currentYearMode === 'year' ? 'pointer' : 'default';
+                },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                var label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                label += context.parsed.y;
+                                if (currentYearMode === 'year') label += ' (kliknij, aby zobaczyć miesiące)';
+                                return label;
+                            }
+                        }
+                    }
+                },
+                onClick: (event, activeEls, chart) => {
+                    if (currentYearMode !== 'year') return;
+
+                    var index = -1;
+                    var points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+                    
+                    if (points.length) {
+                        index = points[0].index;
+                    } else {
+                        var xAxis = chart.scales.x;
+                        if (event.y >= xAxis.top) {
+                            var pixelX = event.x;
+                            var rawIndex = xAxis.getValueForPixel(pixelX);
+                            index = Math.round(rawIndex);
+                            if (index < 0) index = 0;
+                            if (index >= currentLabels.length) index = currentLabels.length - 1;
+                        }
+                    }
+
+                    if (index >= 0 && index < currentLabels.length) {
+                        var year = currentLabels[index];
+                        if (year) fetchMonthlyStats(year);
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: theme.grid, drawBorder: false }, ticks: { color: theme.muted } },
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { 
+                            color: theme.text,
+                            font: { weight: 'bold' },
+                            maxRotation: 45,
+                            minRotation: 45
+                        } 
+                    }
+                }
+            }
+        });
+    }
+
+    async function fetchMonthlyStats(year) {
+        console.log('Fetching stats for year:', year);
+        var username = '{{ profile_user.username }}';
+        var url = `/ajax/get-monthly-stats/${username}/${year}/`;
+        
+        try {
+            var response = await fetch(url);
+            var data = await response.json();
+            console.log('Received data:', data);
+            
+            if (data.status === 'success') {
+                currentYearMode = 'month';
+                currentListeningYear = year;
+                currentLabels = data.labels;
+                currentCounts = data.counts;
+                currentHours = data.hours;
+                
+                // Update UI
+                var titleEl = document.getElementById('listening-title');
+                if (titleEl) titleEl.textContent = `Statystyki: ${year}`;
+                
+                var btnReset = document.getElementById('btn-listening-reset');
+                if (btnReset) btnReset.classList.remove('hidden');
+                
+                var tipEl = document.getElementById('listening-tip');
+                if (tipEl) tipEl.textContent = 'Widok miesięczny - kliknij Powrót, aby wyjść';
+                
+                initListeningChart(currentMode);
+            } else {
+                console.error('Error in data:', data.message);
+            }
+        } catch (error) {
+            console.error('Network error fetching monthly stats:', error);
+        }
+    }
+
+    function resetListeningChart() {
+        currentYearMode = 'year';
+        currentListeningYear = null;
+        currentLabels = [...originalLabels];
+        currentCounts = [...originalCounts];
+        currentHours = [...originalHours];
+        
+        var titleEl = document.getElementById('listening-title');
+        if (titleEl) titleEl.textContent = 'Rok przesłuchania';
+        
+        var btnReset = document.getElementById('btn-listening-reset');
+        if (btnReset) btnReset.classList.add('hidden');
+        
+        var tipEl = document.getElementById('listening-tip');
+        if (tipEl) tipEl.textContent = 'Kliknij w kropkę, aby zobaczyć statystyki miesięczne';
+        
+        initListeningChart(currentMode);
+    }
+
+    function toggleChartMode(mode) {
+        initBarChart(mode);
+        var btnCount = document.getElementById('btn-count');
+        var btnHours = document.getElementById('btn-hours');
+        if (mode === 'count') {
+            btnCount.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20';
+            btnHours.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main';
+        } else {
+            btnHours.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all bg-indigo-500 text-white shadow-lg shadow-indigo-500/20';
+            btnCount.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main';
+        }
+    }
+
+    function toggleYearChartMode(mode) {
+        initYearChart(mode);
+        var btnCount = document.getElementById('btn-year-count');
+        var btnHours = document.getElementById('btn-year-hours');
+        if (mode === 'count') {
+            btnCount.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all bg-primary text-background-main';
+            btnHours.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-muted hover:text-text-main';
+        } else {
+            btnHours.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all bg-indigo-500 text-white';
+            btnCount.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-muted hover:text-text-main';
+        }
+    }
+
+    function toggleListeningChartMode(mode) {
+        initListeningChart(mode);
+        var btnCount = document.getElementById('btn-listening-count');
+        var btnHours = document.getElementById('btn-listening-hours');
+        if (mode === 'count') {
+            btnCount.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all bg-primary text-background-main';
+            btnHours.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-muted hover:text-text-main';
+        } else {
+            btnHours.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all bg-pink-500 text-white';
+            btnCount.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-muted hover:text-text-main';
+        }
+    }
+
+    function toggleArtistsVisibility() {
+        var container = document.getElementById('artist-container');
+        var btn = document.getElementById('artist-toggle-btn');
+        var isLimited = container.classList.toggle('artists-limited');
+        
+        if (btn) {
+            btn.textContent = isLimited ? "Pokaż wszystkich ({{ artist_stats|length }})" : "Pokaż mniej";
+            btn.className = isLimited 
+                ? "px-4 py-1.5 bg-background-main/50 hover:bg-background-main text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/20 transition-all shadow-sm"
+                : "px-4 py-1.5 bg-background-element hover:bg-background-card text-text-main text-[10px] font-black uppercase tracking-widest rounded-lg border border-border-main transition-all shadow-sm";
+            if (!isLimited) {
+                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }
+
+    function toggleGenresVisibility() {
+        var container = document.getElementById('genre-container');
+        var btn = document.getElementById('genre-toggle-btn');
+        var isLimited = container.classList.toggle('genres-limited');
+        
+        if (btn) {
+            btn.textContent = isLimited ? "Pokaż wszystkie ({{ genre_stats|length }})" : "Pokaż mniej";
+            btn.className = isLimited 
+                ? "px-4 py-1.5 bg-background-main/50 hover:bg-background-main text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/20 transition-all shadow-sm"
+                : "px-4 py-1.5 bg-background-element hover:bg-background-card text-text-main text-[10px] font-black uppercase tracking-widest rounded-lg border border-border-main transition-all shadow-sm";
+            if (!isLimited) {
+                // Scroll slightly to see more if needed
+                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }
+
+    function sortGenres(mode) {
+        var container = document.getElementById('genre-container');
+        var cards = Array.from(container.getElementsByClassName('genre-card'));
+        var btnCount = document.getElementById('btn-genre-count');
+        var btnTime = document.getElementById('btn-genre-time');
+
+        // Update buttons
+        if (mode === 'count') {
+            btnCount.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20';
+            btnTime.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main';
+        } else {
+            btnTime.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20';
+            btnCount.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main';
+        }
+
+        // Sort
+        cards.sort((a, b) => {
+            var valA = parseInt(a.getAttribute(mode === 'count' ? 'data-count' : 'data-time'));
+            var valB = parseInt(b.getAttribute(mode === 'count' ? 'data-count' : 'data-time'));
+            return valB - valA;
+        });
+
+        // Re-append and update ranks
+        cards.forEach((card, index) => {
+            container.appendChild(card);
+            var rankDiv = card.querySelector('.genre-rank');
+            if (rankDiv) rankDiv.textContent = index + 1;
+        });
+    }
+
+    function sortArtists(mode) {
+        var container = document.getElementById('artist-container');
+        var cards = Array.from(container.getElementsByClassName('artist-card'));
+        var btnCount = document.getElementById('btn-artist-count');
+        var btnTime = document.getElementById('btn-artist-time');
+
+        // Update buttons
+        if (mode === 'count') {
+            btnCount.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20';
+            btnTime.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main';
+        } else {
+            btnTime.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary/20';
+            btnCount.className = 'px-6 py-3 rounded-xl text-sm font-bold transition-all text-text-muted hover:text-text-main';
+        }
+
+        // Sort
+        cards.sort((a, b) => {
+            var valA = parseInt(a.getAttribute(mode === 'count' ? 'data-count' : 'data-time'));
+            var valB = parseInt(b.getAttribute(mode === 'count' ? 'data-count' : 'data-time'));
+            return valB - valA;
+        });
+
+        // Re-append and update ranks
+        cards.forEach((card, index) => {
+            container.appendChild(card);
+            var rankDiv = card.querySelector('.artist-rank');
+            if (rankDiv) rankDiv.textContent = index + 1;
+        });
+    }
+
+    document.addEventListener('turbo:load', () => {
+        // Inicjalizuj tylko jeśli jesteśmy na stronie statystyk
+        if (!document.getElementById('listeningLineChart')) return;
+
+        if (typeof resetListeningChart === 'function') {
+            resetListeningChart();
+        }
+        initBarChart('count');
+        initYearChart('count');
+    });
+</script>
+
+<style>
+    @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-in { animation: fade-in 0.6s ease-out forwards; }
+    
+    /* Limit genres visibility */
+    #genre-container.genres-limited .genre-card:nth-child(n+5) {
+        display: none;
+    }
+    
+    #artist-container.artists-limited .artist-card:nth-child(n+5) {
+        display: none;
+    }
+</style>
+{% endblock %}

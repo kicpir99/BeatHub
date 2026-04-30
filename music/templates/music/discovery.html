@@ -1,0 +1,1055 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Odkrywaj - BeatHub{% endblock %}
+
+{% block content %}
+<style>
+    .discovery-container {
+        height: calc(100vh - 12rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        perspective: 2000px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* Discovery Stats Widget */
+    .discovery-stats-widget {
+        position: absolute;
+        top: 2rem;
+        right: 2rem;
+        z-index: 100;
+        background: var(--background-surface);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 0.8rem 1.4rem;
+        border-radius: 1.8rem;
+        border: 1px solid var(--border-main);
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        pointer-events: auto;
+    }
+    .discovery-stats-widget:hover {
+        background: rgba(255, 255, 255, 0.06);
+        transform: translateY(-5px);
+    }
+    .stats-icon {
+        font-size: 1.2rem;
+        filter: drop-shadow(0 0 5px var(--primary));
+    }
+    .stats-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .stats-label {
+        font-size: 0.6rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        line-height: 1;
+        margin-bottom: 2px;
+    }
+    .stats-value-container {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+    .stats-value {
+        font-size: 1.1rem;
+        font-weight: 900;
+        color: var(--primary);
+        font-family: 'Outfit', sans-serif;
+    }
+    .stats-suffix {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+    }
+    .pulse-anim {
+        animation: widget-pulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes widget-pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); background: var(--primary); }
+        100% { transform: scale(1); }
+    }
+
+    #discovery-visualizer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    /* Minimalist Top Control */
+    .discovery-top-nav {
+        position: absolute;
+        top: 2rem;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    .filter-trigger-wrapper {
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--background-surface);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 0.6rem 1.5rem;
+        border-radius: 2rem;
+        border: 1px solid var(--border-main);
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .filter-trigger-wrapper:hover { background: var(--background-element); transform: translateY(-3px); }
+    .filter-trigger-wrapper.is-active { background: var(--primary); border-color: var(--primary); color: var(--background-main) !important; }
+
+    .filter-trigger-text { font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-main); }
+
+    /* Filters Panel */
+    .advanced-filters-panel {
+        position: absolute;
+        top: 6.5rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(-20px);
+        width: 440px;
+        background: var(--background-surface);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border: 1px solid var(--border-main);
+        border-radius: 2.5rem;
+        padding: 2rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        z-index: 150;
+        box-shadow: 0 40px 100px rgba(0, 0, 0, 0.3);
+    }
+    .advanced-filters-panel.is-open { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+
+    .filter-section { margin-bottom: 2rem; }
+    .filter-label { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 1.2rem; }
+    .filter-value { color: var(--primary); font-family: monospace; font-size: 1.1rem; font-weight: bold; }
+
+    .genre-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .genre-pill {
+        padding: 0.5rem 1.1rem; background: var(--background-element); border: 1px solid var(--border-main); border-radius: 1rem; color: var(--text-secondary); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; user-select: none;
+    }
+    .genre-pill.active { background: var(--primary); border-color: var(--primary); color: var(--background-main); }
+
+    .range-slider { position: relative; width: 100%; height: 40px; display: flex; align-items: center; margin-top: 1rem; }
+    .range-slider input[type="range"] {
+        position: absolute;
+        width: 100%;
+        -webkit-appearance: none;
+        appearance: none;
+        background: none;
+        pointer-events: none;
+        z-index: 2;
+        outline: none;
+        height: 100%;
+        margin: 0;
+    }
+    /* Webkit (Chrome, Edge, Safari) */
+    .range-slider input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        pointer-events: auto;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--background-main);
+        border: 4px solid var(--primary);
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+        position: relative;
+        z-index: 10;
+    }
+    .range-slider input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); border-color: var(--primary-hover); }
+    .range-slider input[type="range"]::-webkit-slider-thumb:active { transform: scale(0.95); }
+
+    /* Firefox */
+    .range-slider input[type="range"]::-moz-range-thumb {
+        pointer-events: auto;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: white;
+        border: 4px solid var(--primary);
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .slider-track { position: absolute; width: 100%; height: 6px; background: var(--background-element); border-radius: 3px; z-index: 1; top: 50%; transform: translateY(-50%); }
+    .slider-active-range { position: absolute; height: 6px; background: var(--primary); border-radius: 3px; z-index: 1; top: 50%; transform: translateY(-50%); }
+
+    /* CARD 3D STRUCTURE */
+    .card-stack {
+        position: relative;
+        width: 380px;
+        height: 540px;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform-style: preserve-3d;
+    }
+
+    .discovery-card {
+        position: absolute;
+        width: 380px;
+        height: 520px;
+        z-index: 1;
+        transform-style: preserve-3d;
+        transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
+        pointer-events: none;
+    }
+    .discovery-card.is-active { pointer-events: auto; z-index: 100; }
+    .discovery-card.is-back-1 { transform: translateZ(-80px) translateY(15px) scale(0.94); opacity: 0.6; z-index: 50; filter: blur(1px); }
+    .discovery-card.is-back-2 { transform: translateZ(-160px) translateY(30px) scale(0.88); opacity: 0.3; z-index: 25; filter: blur(2px); }
+
+    .card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .discovery-card.is-flipped .card-inner { transform: rotateY(180deg); }
+
+    .card-front, .card-back {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        border-radius: 2.5rem;
+        overflow: hidden;
+        background: var(--background-surface);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-main);
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .card-back {
+        transform: rotateY(180deg);
+        background: linear-gradient(135deg, var(--background-surface) 0%, var(--background-main) 100%);
+        display: flex;
+        flex-direction: column;
+        padding: 2.2rem;
+    }
+
+    /* Fix: Disable front interactions when flipped */
+    .discovery-card.is-flipped .card-front { pointer-events: none !important; opacity: 0; }
+
+    /* Info Button */
+    .info-btn {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        width: 38px;
+        height: 38px;
+        background: var(--background-main);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border-main);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-main);
+        cursor: pointer;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        backface-visibility: hidden;
+    }
+    .info-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.1) rotate(15deg); }
+    .discovery-card.is-flipped .info-btn { opacity: 0; pointer-events: none; }
+
+    /* Specific Back Close Button */
+    .back-close-btn {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        width: 38px;
+        height: 38px;
+        background: var(--background-element);
+        border: 1px solid var(--border-main);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        cursor: pointer;
+        z-index: 10;
+        transition: all 0.3s ease;
+    }
+    .back-close-btn:hover { background: var(--background-card); color: var(--text-main); transform: rotate(90deg); }
+
+    /* Card Content Styles */
+    .card-image-container { position: relative; width: 100%; height: 65%; overflow: hidden; }
+    .card-image { 
+        width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; 
+        -webkit-user-drag: none; user-drag: none; pointer-events: none;
+    }
+    .card-front:hover .card-image { transform: scale(1.05); }
+
+    .play-pause-overlay {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.1); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 5;
+    }
+    /* Only show hover on front when NOT flipped */
+    .discovery-card:not(.is-flipped) .card-front:hover .play-pause-overlay { opacity: 1; }
+    
+    .pp-icon-container {
+        width: 80px; height: 80px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--background-main); box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: auto; cursor: pointer;
+    }
+    .pp-icon-container:hover { transform: scale(1.1) !important; background: var(--text-main); color: var(--background-main); }
+    .discovery-card:not(.is-flipped) .card-front:hover .pp-icon-container { transform: scale(1); }
+
+    .card-info { padding: 2rem 1.5rem; background: linear-gradient(to bottom, transparent, var(--background-main)); position: absolute; bottom: 0; left: 0; right: 0; pointer-events: none; z-index: 6; }
+    .card-controls { height: 35%; padding: 1.2rem 1.5rem; display: flex; flex-direction: column; justify-content: space-between; background: var(--background-surface); z-index: 10; }
+
+    /* Progress & Volume */
+    .progress-bar-wrapper { padding: 12px 0; cursor: pointer; pointer-events: auto; }
+    .progress-bar-container { width: 100%; height: 6px; background: var(--background-element); border-radius: 3px; position: relative; }
+    .progress-bar-fill { height: 100%; width: 0%; background: var(--primary); border-radius: 3px; position: relative; }
+    .progress-bar-fill::after { content: ''; position: absolute; right: -6px; top: 50%; transform: translateY(-50%) scale(0); width: 14px; height: 14px; background: white; border-radius: 50%; transition: transform 0.2s ease; }
+    .progress-bar-wrapper:hover .progress-bar-fill::after { transform: translateY(-50%) scale(1); }
+
+    .bottom-controls { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .volume-control-wrapper { position: relative; display: flex; align-items: center; gap: 12px; background: var(--background-element); padding: 8px 12px; border-radius: 1rem; transition: all 0.3s ease; pointer-events: auto; }
+    .volume-control-wrapper:hover { background: var(--background-card); width: 150px; border: 1px solid var(--border-main); }
+    .volume-slider-discovery { -webkit-appearance: none; width: 0; opacity: 0; height: 4px; background: var(--border-main); border-radius: 2px; outline: none; cursor: pointer; transition: all 0.3s ease; }
+    .volume-control-wrapper:hover .volume-slider-discovery { width: 90px; opacity: 1; }
+
+    .action-buttons { display: flex; justify-content: center; align-items: center; gap: 2.5rem; margin-top: 0.5rem; }
+    .action-btn { width: 68px; height: 68px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: var(--background-element); border: 1px solid var(--border-main); box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1); pointer-events: auto; color: var(--text-main); }
+    .btn-skip:hover { background: #ef4444; border-color: #ef4444; color: white; transform: scale(1.15) rotate(-5deg); }
+    .btn-like:hover { background: var(--primary); border-color: var(--primary); color: var(--background-main); transform: scale(1.15) rotate(5deg); }
+    
+    .global-undo-btn {
+        position: absolute;
+        top: 2rem;
+        left: 2rem;
+        z-index: 100;
+        width: 52px;
+        height: 52px;
+        background: var(--background-card);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 1.2rem;
+        border: 1px solid var(--border-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        cursor: not-allowed;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        pointer-events: auto;
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    .global-undo-btn.is-enabled {
+        opacity: 1;
+        transform: translateX(0);
+        cursor: pointer;
+        color: var(--text-main);
+    }
+    .global-undo-btn.is-enabled:hover {
+        background: var(--background-element);
+        color: var(--primary);
+        transform: scale(1.1);
+        border-color: var(--primary);
+    }
+
+    /* COLLECTOR CARD (BACK) */
+    .back-header { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 2rem; }
+    .back-artist-photo { width: 68px; height: 68px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; box-shadow: 0 0 15px var(--primary-glow); }
+    .back-header-info h4 { font-size: 1.35rem; font-weight: 900; color: var(--text-main); margin: 0; line-height: 1.2; letter-spacing: -0.02em; }
+    .back-genre-tag { display: inline-block; padding: 0.25rem 0.7rem; background: var(--primary-glow-light); color: var(--primary); border-radius: 0.6rem; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.45rem; }
+
+    .back-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+    .back-stat-card { background: var(--background-element); border: 1px solid var(--border-main); padding: 1.1rem; border-radius: 1.4rem; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; transition: all 0.3s ease; }
+    .back-stat-card:hover { transform: translateY(-5px); background: var(--background-card); }
+    .back-stat-icon { color: var(--primary); }
+    .back-stat-value { color: var(--text-main); font-size: 1.2rem; font-weight: 900; }
+    .back-stat-label { color: var(--text-muted); font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; }
+
+    .back-info-list { 
+        display: flex; 
+        flex-direction: column; 
+        gap: 1.2rem; 
+        margin-bottom: auto; 
+        pointer-events: auto !important;
+        position: relative;
+        z-index: 50;
+    }
+    .back-info-item { display: flex; align-items: center; gap: 1.1rem; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; pointer-events: auto; }
+    .back-info-icon { color: var(--text-muted); opacity: 0.7; width: 18px; }
+    .back-info-content b { color: var(--text-main); font-weight: 800; margin-left: 0.3rem; transition: color 0.3s ease; }
+
+    .back-cta-btn {
+        display: flex; align-items: center; justify-content: center; gap: 0.8rem; width: 100%; padding: 1.2rem; background: var(--primary); color: var(--background-main); border-radius: 1.6rem; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); cursor: pointer; text-decoration: none; margin-top: 2rem;
+        pointer-events: auto;
+    }
+    .back-cta-btn:hover { transform: scale(1.02) translateY(-2px); background: var(--text-main); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    
+    .back-album-link { 
+        color: inherit !important; 
+        text-decoration: none !important; 
+        transition: all 0.3s ease; 
+        pointer-events: auto !important; 
+        display: inline-block;
+    }
+    .back-album-link:hover, .back-album-link:hover b { color: var(--primary) !important; }
+
+    /* Discovery BG & Swipe Overlays */
+    .discovery-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center; filter: blur(80px) brightness(0.2); opacity: 0.9; transition: background-image 1.2s ease; }
+    .swiped-right { transform: translate(200%, -20%) rotate(45deg) !important; opacity: 0 !important; }
+    .swiped-left { transform: translate(-200%, -20%) rotate(-45deg) !important; opacity: 0 !important; }
+    .returning { z-index: 2000 !important; pointer-events: none; }
+    .returning-right { animation: return-card-right 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+    .returning-left { animation: return-card-left 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+    @keyframes return-card-right { from { transform: translate(200%, -20%) rotate(45deg) scale(1.1); opacity: 0; } to { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; } }
+    @keyframes return-card-left { from { transform: translate(-200%, -20%) rotate(-45deg) scale(1.1); opacity: 0; } to { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; } }
+
+    .swipe-overlay { position: absolute; top: 10%; width: 100%; display: flex; justify-content: center; font-size: 3rem; font-weight: 900; text-transform: uppercase; opacity: 0; z-index: 1000; pointer-events: none; transition: opacity 0.1s ease; }
+    .overlay-inner { padding: 1rem 2.5rem; border-radius: 1.5rem; border: 10px solid currentColor; background: rgba(0,0,0,0.2); }
+    .overlay-like { color: var(--primary); transform: rotate(-15deg); }
+    .overlay-skip { color: #ef4444; transform: rotate(15deg); }
+
+    .mini-visualizer { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+    .vis-bar { width: 3px; background: var(--primary); border-radius: 1px; height: 4px; animation: vis-anim 0.5s infinite ease-in-out; animation-play-state: paused; }
+    .mini-visualizer.playing .vis-bar { animation-play-state: running; }
+    @keyframes vis-anim { 0%, 100% { height: 4px; } 50% { height: 16px; } }
+    .empty-state { text-align: center; max-width: 420px; z-index: 20; }
+
+    .shortcuts-help { position: absolute; bottom: 1.5rem; left: 1.5rem; display: flex; flex-wrap: wrap; gap: 1.5rem; opacity: 0.8; z-index: 20; pointer-events: none; }
+    .shortcut-item { display: flex; align-items: center; gap: 0.5rem; color: white; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; }
+    .key { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 0.2rem 0.5rem; border-radius: 0.4rem; min-width: 1.5rem; text-align: center; }
+</style>
+
+<div class="discovery-container" id="discovery-root">
+    <div id="discovery-bg" class="discovery-bg"></div>
+    <canvas id="discovery-visualizer"></canvas>
+    
+    <div class="discovery-top-nav">
+        <div class="filter-trigger-wrapper" id="filter-trigger" onclick="window.discovery.toggleFilterPanel()">
+            <svg class="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+            <span class="filter-trigger-text">Filtruj Odkrycia</span>
+        </div>
+    </div>
+
+    <div class="advanced-filters-panel" id="advanced-filters">
+        <div class="filter-section">
+            <div class="filter-label"><span>Gatunki Muzyczne</span><span class="text-[10px] text-text-muted font-bold">Wybierz wiele</span></div>
+            <div class="genre-grid">
+                <div class="genre-pill active" data-genre="all" id="pill-all" onclick="window.discovery.toggleGenre('all', this)">Wszystko</div>
+                {% for genre in genres %}
+                <div class="genre-pill" data-genre="{{ genre.slug }}" onclick="window.discovery.toggleGenre('{{ genre.slug }}', this)">{{ genre.name }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <div class="filter-label"><span>Przedział lat</span><span class="filter-value" id="year-range-display">1950 - 2025</span></div>
+            <div class="range-slider">
+                <div class="slider-track"></div>
+                <div class="slider-active-range" id="slider-range"></div>
+                <input type="range" min="1950" max="2025" value="1950" id="year-from" oninput="window.discovery.updateYearSlider()" onmousedown="this.style.zIndex=5; document.getElementById('year-to').style.zIndex=4;" ontouchstart="this.style.zIndex=5; document.getElementById('year-to').style.zIndex=4;">
+                <input type="range" min="1950" max="2025" value="2025" id="year-to" oninput="window.discovery.updateYearSlider()" onmousedown="this.style.zIndex=5; document.getElementById('year-from').style.zIndex=4;" ontouchstart="this.style.zIndex=5; document.getElementById('year-from').style.zIndex=4;">
+            </div>
+        </div>
+
+        <button onclick="window.discovery.toggleFilterPanel()" class="w-full mt-4 py-3 bg-background-element hover:bg-background-card text-text-main font-black text-[10px] uppercase tracking-[0.2em] rounded-xl border border-border-main transition-all shadow-sm">
+            Zamknij i miksuj
+        </button>
+    </div>
+
+    <div id="card-stack" class="card-stack">
+        <div id="loader" class="w-full flex justify-center">
+            <div class="w-[380px] h-[520px]">
+                {% include 'music/partials/skeleton_card.html' %}
+            </div>
+        </div>
+    </div>
+
+    <div class="shortcuts-help">
+        <div class="shortcut-item"><span class="key">←</span> <span>Pomiń</span></div>
+        <div class="shortcut-item"><span class="key">→</span> <span>Super!</span></div>
+        <div class="shortcut-item"><span class="key">Space</span> <span>Play/Pause</span></div>
+        <div class="shortcut-item"><span class="key">Z</span> <span>Cofnij</span></div>
+    </div>
+
+    <button class="global-undo-btn" id="global-undo-btn" onclick="window.discovery.undo()" title="Cofnij ostatnią akcję (Z)">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+    </button>
+
+    <div class="discovery-stats-widget" id="stats-widget">
+        <div class="stats-icon">✨</div>
+        <div class="stats-content">
+            <span class="stats-label">Odkrycia dziś</span>
+            <div class="stats-value-container">
+                <span class="stats-value" id="today-discovery-count">{{ today_discovery_count }}</span>
+                <span class="stats-suffix">utworów</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="swipe-overlay-like" class="swipe-overlay"><div class="overlay-inner overlay-like">SUPER!</div></div>
+    <div id="swipe-overlay-skip" class="swipe-overlay"><div class="overlay-inner overlay-skip">PASS</div></div>
+</div>
+
+<audio id="discovery-audio" preload="auto"></audio>
+
+<script>
+if (typeof window.DiscoveryController === 'undefined') {
+    window.Particle = class Particle {
+        constructor(canvas, x, y, baseColor) {
+            this.canvas = canvas; this.x = x; this.y = y;
+            const rand = Math.random();
+            if (rand > 0.7) this.color = {r: 255, g: 255, b: 255};
+            else if (rand > 0.4) this.color = { r: Math.min(255, baseColor.r + 100), g: Math.min(255, baseColor.g + 100), b: Math.min(255, baseColor.b + 100) };
+            else this.color = baseColor;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 6 + Math.random() * 14;
+            this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+            this.size = 3 + Math.random() * 7; this.life = 1.0; this.decay = 0.01 + Math.random() * 0.02;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.vy += 0.3; this.life -= this.decay; }
+        draw(ctx) {
+            const alpha = this.life; ctx.shadowBlur = 15 * this.life; ctx.shadowColor = `rgba(255, 255, 255, ${alpha})`;
+            ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${alpha})`;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        }
+    };
+
+    window.DiscoveryController = class DiscoveryController {
+        constructor() {
+            this.root = document.getElementById('discovery-root');
+            this.stack = document.getElementById('card-stack');
+            this.bg = document.getElementById('discovery-bg');
+            this.audio = document.getElementById('discovery-audio');
+            this.syncVolumeFromStorage();
+            this.songs = []; this.currentIndex = 0; this.previewDuration = 15;
+            this.selectedGenres = []; this.yearFrom = 1950; this.yearTo = 2025;
+            this.history = []; 
+            this.isDragging = false; this.isSeeking = false; this.isUndoing = false;
+            this.startX = 0; this.startY = 0; this.currentX = 0; this.currentY = 0;
+            this.activeCard = null; this.dragStartTime = 0;
+            this.elapsedInWindow = 0; this.windowStartTime = 0;
+            this.audioCtx = null; this.analyser = null; this.source = null; this.dataArray = null;
+            this.canvas = document.getElementById('discovery-visualizer');
+            this.ctx = this.canvas.getContext('2d');
+            this.activeColor = {r: 239, g: 68, b: 68}; 
+            
+            // Pobieramy kolor primary z CSS
+            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+            if (primaryColor.startsWith('rgb')) {
+                const match = primaryColor.match(/\d+/g);
+                if (match) this.activeColor = {r: parseInt(match[0]), g: parseInt(match[1]), b: parseInt(match[2])};
+            } else if (primaryColor.startsWith('#')) {
+                // Konwersja hex na rgb dla wizualizatora
+                const r = parseInt(primaryColor.slice(1, 3), 16);
+                const g = parseInt(primaryColor.slice(3, 5), 16);
+                const b = parseInt(primaryColor.slice(5, 7), 16);
+                this.activeColor = {r, g, b};
+            }
+            this.confetti = [];
+            this.sliderDebounceId = null;
+            this.init();
+        }
+
+        syncVolumeFromStorage() {
+            const savedVol = localStorage.getItem('beathub-volume');
+            if (savedVol !== null) this.audio.volume = parseFloat(savedVol);
+            else if (window.audio) this.audio.volume = window.audio.volume;
+        }
+
+        async init() {
+            if (window.audio) { window.audio.pause(); const gp = document.getElementById('global-player'); if (gp) gp.classList.add('translate-y-full'); }
+            this.updateYearSlider(true); // true = skip refresh on init
+            await this.loadSongs();
+            this.renderCards();
+            
+            document.addEventListener('mousemove', (e) => this.handleMove(e));
+            document.addEventListener('mouseup', (e) => this.handleEnd(e));
+            document.addEventListener('touchmove', (e) => this.handleMove(e), { passive: false });
+            document.addEventListener('touchend', (e) => this.handleEnd(e));
+            this.boundHandleKeydown = (e) => this.handleKeydown(e);
+            document.addEventListener('keydown', this.boundHandleKeydown);
+            window.addEventListener('mousemove', (e) => this.performSeek(e));
+            window.addEventListener('mouseup', () => { if (this.isSeeking) { this.isSeeking = false; document.querySelectorAll('.progress-bar-wrapper').forEach(w => w.classList.remove('is-dragging')); } });
+            window.addEventListener('play', (e) => { if (e.target.id !== 'discovery-audio') this.stopAudio(); }, true);
+            this.audio.addEventListener('play', () => this.updateUIState(false));
+            this.audio.addEventListener('playing', () => this.updateUIState(false));
+            this.audio.addEventListener('pause', () => this.updateUIState(true));
+            const setupAudioOnce = (e) => { 
+                this.initVisualizer(); 
+                if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
+                
+                // Jeśli kliknięto w element interaktywny, pozwól mu obsłużyć audio samodzielnie
+                const isInteractive = e.target.closest('button, .action-btn, .pp-icon-container, .progress-bar-wrapper, .volume-control-wrapper, .clickable-title');
+                if (!isInteractive && this.audio.paused) {
+                    this.audio.play().catch(() => {});
+                }
+                
+                document.removeEventListener('mousedown', setupAudioOnce); 
+                document.removeEventListener('touchstart', setupAudioOnce); 
+            };
+            document.addEventListener('mousedown', setupAudioOnce);
+            document.addEventListener('touchstart', setupAudioOnce, { passive: true });
+        }
+
+        toggleFilterPanel() {
+            const panel = document.getElementById('advanced-filters');
+            const trigger = document.getElementById('filter-trigger');
+            panel.classList.toggle('is-open');
+            trigger.classList.toggle('is-active');
+        }
+
+        updateYearSlider(skipRefresh = false) {
+            const inputFrom = document.getElementById('year-from');
+            const inputTo = document.getElementById('year-to');
+            const display = document.getElementById('year-range-display');
+            const activeRange = document.getElementById('slider-range');
+            if (!inputFrom || !inputTo) return;
+
+            // Dynamic z-index fix: ensure the thumb being moved is on top
+            const fromVal = parseInt(inputFrom.value);
+            const toVal = parseInt(inputTo.value);
+            if (fromVal > (parseInt(inputFrom.max) - 20)) {
+                inputFrom.style.zIndex = "5";
+                inputTo.style.zIndex = "4";
+            } else if (toVal < (parseInt(inputTo.min) + 20)) {
+                inputTo.style.zIndex = "5";
+                inputFrom.style.zIndex = "4";
+            }
+
+            let valFrom = parseInt(inputFrom.value);
+            let valTo = parseInt(inputTo.value);
+            if (valFrom > valTo) {
+                if (this.yearFrom !== valFrom) valTo = valFrom;
+                else valFrom = valTo;
+                inputFrom.value = valFrom;
+                inputTo.value = valTo;
+            }
+            this.yearFrom = valFrom; this.yearTo = valTo;
+            display.textContent = `${valFrom} - ${valTo}`;
+            const min = parseInt(inputFrom.min); const max = parseInt(inputFrom.max);
+            const percent1 = ((valFrom - min) / (max - min)) * 100;
+            const percent2 = ((valTo - min) / (max - min)) * 100;
+            activeRange.style.left = percent1 + '%'; activeRange.style.width = (percent2 - percent1) + '%';
+            
+            if (skipRefresh) return;
+            if (this.sliderDebounceId) clearTimeout(this.sliderDebounceId);
+            this.sliderDebounceId = setTimeout(() => this.refreshDiscovery(), 500);
+        }
+
+        handleKeydown(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            switch(e.key) {
+                case 'ArrowLeft': this.swipe('left'); break;
+                case 'ArrowRight': this.swipe('right'); break;
+                case 'z': case 'Z': this.undo(); break;
+                case ' ': e.preventDefault(); this.togglePlayPause(); break;
+            }
+        }
+
+        initVisualizer() {
+            if (this.audioCtx) return;
+            try {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                this.analyser = this.audioCtx.createAnalyser();
+                this.source = this.audioCtx.createMediaElementSource(this.audio);
+                this.source.connect(this.analyser);
+                this.analyser.connect(this.audioCtx.destination);
+                this.analyser.fftSize = 128; this.analyser.smoothingTimeConstant = 0.8;
+                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                this.draw();
+            } catch(e) { console.warn("Visualizer init failed:", e); }
+        }
+
+        extractColorFromImage(imgUrl) {
+            const doExtract = () => {
+                const tempImg = new Image(); tempImg.crossOrigin = "Anonymous"; tempImg.src = imgUrl;
+                tempImg.onload = () => {
+                    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                    canvas.width = 1; canvas.height = 1;
+                    try { ctx.drawImage(tempImg, 0, 0, 1, 1); const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data; this.activeColor = {r, g, b}; }
+                    catch(e) { console.warn("Color extraction failed:", e); }
+                };
+            };
+            if (window.requestIdleCallback) window.requestIdleCallback(doExtract); else setTimeout(doExtract, 50);
+        }
+
+        draw() {
+            if (!this.canvas) return;
+            requestAnimationFrame(() => this.draw());
+            const width = this.canvas.width = this.canvas.clientWidth;
+            const height = this.canvas.height = this.canvas.clientHeight;
+            if (this.analyser) this.analyser.getByteFrequencyData(this.dataArray); else return;
+            this.ctx.clearRect(0, 0, width, height);
+            let bassSum = 0; for(let i=0; i<4; i++) bassSum += this.dataArray[i];
+            const bassIntensity = (bassSum / 4) / 255;
+            this.confetti = this.confetti.filter(c => c.life > 0);
+            this.confetti.forEach(c => { c.update(); c.draw(this.ctx); });
+            const barCount = this.dataArray.length; const barWidth = (width / barCount) * 0.8;
+            let barHeight; let x_right = width / 2; let x_left = width / 2 - barWidth;
+            const {r, g, b} = this.activeColor;
+            for (let i = 0; i < barCount; i++) {
+                barHeight = (this.dataArray[i] / 255) * height * (0.4 + 0.6 * bassIntensity);
+                const opacity = 0.3 + (this.dataArray[i] / 255) * 0.5;
+                this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                this.ctx.strokeStyle = `rgba(255, 255, 255, 0.15)`;
+                this.ctx.lineWidth = 1.5;
+                this.drawRoundedRect(x_right, height - barHeight, barWidth - 8, barHeight, 10);
+                this.drawRoundedRect(x_left, height - barHeight, barWidth - 8, barHeight, 10);
+                x_right += barWidth + 4; x_left -= (barWidth + 4);
+            }
+        }
+
+        drawRoundedRect(x, y, w, h, r) {
+            if (h <= 0) return; if (h < r) r = h/2;
+            this.ctx.beginPath(); this.ctx.moveTo(x, y + h); this.ctx.lineTo(x, y + r); this.ctx.quadraticCurveTo(x, y, x + r, y);
+            this.ctx.lineTo(x + w - r, y); this.ctx.quadraticCurveTo(x + w, y, x + w, y + r); this.ctx.lineTo(x + w, y + h);
+            this.ctx.closePath(); this.ctx.fill(); this.ctx.stroke();
+        }
+
+        createConfettiBurst() {
+            const width = this.canvas.width; const height = this.canvas.height;
+            const startX = width / 2; const startY = height / 2;
+            for(let i=0; i<100; i++) this.confetti.push(new Particle(this.canvas, startX, startY, this.activeColor));
+        }
+
+        async loadSongs() {
+            try { 
+                let url = '{% url "music:get_discovery_songs" %}?';
+                if (this.selectedGenres.length > 0) url += `genre=${this.selectedGenres.join(',')}&`;
+                url += `year_from=${this.yearFrom}&year_to=${this.yearTo}`;
+                const response = await fetch(url); 
+                const data = await response.json(); 
+                if (data.status === 'success') this.songs = [...this.songs, ...data.songs]; 
+            }
+            catch (e) { console.error(e); }
+        }
+
+        toggleGenre(genre, element) {
+            if (genre === 'all') {
+                if (this.selectedGenres.length === 0) return;
+                this.selectedGenres = [];
+            } else {
+                const index = this.selectedGenres.indexOf(genre);
+                if (index > -1) this.selectedGenres.splice(index, 1);
+                else this.selectedGenres.push(genre);
+            }
+            const pills = document.querySelectorAll('.genre-pill'); const allPill = document.getElementById('pill-all');
+            pills.forEach(p => p.classList.remove('active'));
+            if (this.selectedGenres.length === 0) allPill.classList.add('active');
+            else { this.selectedGenres.forEach(slug => { const pill = document.querySelector(`.genre-pill[data-genre="${slug}"]`); if (pill) pill.classList.add('active'); }); }
+            this.refreshDiscovery();
+        }
+
+        refreshDiscovery() {
+            this.stopAudio(); this.songs = []; this.currentIndex = 0; this.history = [];
+            this.stack.innerHTML = `<div id="loader" class="w-full flex justify-center"><div class="w-[380px] h-[520px] bg-background-card p-5 rounded-[2rem] border border-border-main animate-pulse"><div class="aspect-square w-full bg-background-element rounded-2xl mb-4"></div><div class="space-y-3"><div class="h-5 bg-background-element rounded w-4/5"></div><div class="h-4 bg-background-element rounded w-3/5 opacity-50"></div></div></div></div>`;
+            this.loadSongs().then(() => this.renderCards());
+        }
+
+        renderCards() {
+            const loader = document.getElementById('loader'); if (loader) loader.remove();
+            if (this.currentIndex >= this.songs.length) { 
+                if (this.songs.length === 0) { this.stack.innerHTML = `<div class="empty-state text-center p-8 bg-background-card rounded-3xl backdrop-blur-xl border border-border-main"><div class="w-20 h-20 bg-background-element rounded-full flex items-center justify-center mx-auto mb-6"><svg class="w-10 h-10 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 9.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><h3 class="text-xl font-bold text-text-main mb-2">Brak utworów</h3><p class="text-text-secondary text-sm">Nie znaleźliśmy nic w tych filtrach. Spróbuj poszerzyć zakres!</p></div>`; return; }
+                this.showEmptyState(); return; 
+            }
+            for (let i = 0; i < 3; i++) { const songIndex = this.currentIndex + i; if (songIndex < this.songs.length && songIndex >= 0) this.createCard(this.songs[songIndex], i); }
+            this.updateStackPositions(); 
+            this.startActiveAudio();
+            // Wymuszamy synchronizację UI po renderowaniu z opóźnieniem na paint
+            requestAnimationFrame(() => {
+                this.updateUIState(this.audio.paused);
+            });
+        }
+
+        createCard(song, stackPos) {
+            if (document.getElementById(`card-${song.id}`)) return;
+            const card = document.createElement('div'); card.id = `card-${song.id}`; card.className = 'discovery-card'; card.setAttribute('data-song-id', song.id);
+            card.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="info-btn" onclick="event.preventDefault(); event.stopPropagation(); window.discovery.toggleFlip('${song.id}')">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <div class="card-image-container">
+                            <img src="${song.cover}" class="card-image" alt="${song.title}" draggable="false">
+                            <div class="play-pause-overlay">
+                                <div class="pp-icon-container" onclick="event.preventDefault(); event.stopPropagation(); window.discovery.togglePlayPause()">
+                                    <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path id="pp-path-${song.id}" d="M8 5v14l11-7z"></path></svg>
+                                </div>
+                            </div>
+                            <div class="card-info">
+                                <h3 class="text-3xl font-black text-text-main leading-none mb-1"><a href="/album/${song.album_slug}/?play=1&song_id=${song.id}" class="hover:text-primary transition-colors pointer-events-auto clickable-title">${song.title}</a></h3>
+                                <p class="text-primary font-bold uppercase tracking-wider text-xs">${song.artist}</p>
+                            </div>
+                        </div>
+                        <div class="card-controls">
+                            <div class="progress-bar-wrapper" onmousedown="window.discovery.startSeek(event)">
+                                <div class="progress-bar-container"><div class="progress-bar-fill" id="progress-${song.id}"></div></div>
+                            </div>
+                            <div class="bottom-controls">
+                                <div class="mini-visualizer" id="visualizer-${song.id}">
+                                    <div class="vis-bar" style="animation-delay: 0s"></div><div class="vis-bar" style="animation-delay: 0.1s"></div><div class="vis-bar" style="animation-delay: 0.2s"></div>
+                                </div>
+                                <div class="volume-control-wrapper">
+                                    <svg class="w-7 h-7 volume-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M14.016 3.234q3.047 0.656 5.016 3.117t1.969 5.648-1.969 5.648-5.016 3.117v-2.063q2.203-0.656 3.586-2.484t1.383-4.219-1.383-4.219-3.586-2.484v-2.063zM16.5 12q0 2.25-1.406 3.891t-3.594 2.109v-2.063q1.219-0.375 2.016-1.477t0.797-2.461-0.797-2.461-2.016-1.477v-2.063q2.188 0.469 3.594 2.109t1.406 3.891zM3 9h4l5-5v16l-5-5h-4v-6z"></path></svg>
+                                    <input type="range" class="volume-slider-discovery" min="0" max="1" step="0.01" value="${this.audio.volume}" oninput="window.discovery.handleVolume(this.value)">
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="action-btn btn-skip" title="Pomiń (Strzałka w lewo)" onclick="event.preventDefault(); event.stopPropagation(); window.discovery.swipe('left')"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                                <button class="action-btn btn-like" title="Super! (Strzałka w prawo)" onclick="event.preventDefault(); event.stopPropagation(); window.discovery.swipe('right')"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-back">
+                        <div class="back-close-btn" onclick="event.preventDefault(); event.stopPropagation(); window.discovery.toggleFlip('${song.id}')">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </div>
+                        
+                        <div class="back-header">
+                            <img src="${song.artist_photo}" class="back-artist-photo" alt="${song.artist}" draggable="false">
+                            <div class="back-header-info">
+                                <h4>${song.artist}</h4>
+                                <span class="back-genre-tag">${song.artist_genre}</span>
+                            </div>
+                        </div>
+
+                        <div class="back-stats-grid">
+                            <div class="back-stat-card">
+                                <svg class="w-5 h-5 back-stat-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+                                <span class="back-stat-value">${song.likes_count}</span>
+                                <span class="back-stat-label">Lajków</span>
+                            </div>
+                            <div class="back-stat-card">
+                                <svg class="w-5 h-5 back-stat-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"></path></svg>
+                                <span class="back-stat-value">${song.artist_followers}</span>
+                                <span class="back-stat-label">Fanów</span>
+                            </div>
+                        </div>
+
+                        <div class="back-info-list">
+                            <div class="back-info-item">
+                                <svg class="w-5 h-5 back-info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                                <div class="back-info-content">Album: <a href="/album/${song.album_slug}/" class="back-album-link"><b>${song.album_title}</b></a></div>
+                            </div>
+                            <div class="back-info-item">
+                                <svg class="w-5 h-5 back-info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <div class="back-info-content">Rok: <b>${song.release_year}</b></div>
+                            </div>
+                            <div class="back-info-item">
+                                <svg class="w-5 h-5 back-info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                <div class="back-info-content">Producent: <b>${song.album_producer}</b></div>
+                            </div>
+                        </div>
+
+                        <a href="/artist/${song.artist_slug}" class="back-cta-btn">
+                            <span>Zobacz profil artysty</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </a>
+                    </div>
+                </div>
+            `;
+            card.addEventListener('mousemove', (e) => {
+                if (this.isDragging || this.isUndoing || !card.classList.contains('is-active') || card.classList.contains('is-flipped')) return;
+                const rect = card.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+                const centerX = rect.width / 2; const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 30; const rotateY = (centerX - x) / 30;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            });
+            card.addEventListener('mouseleave', () => { if (!this.isDragging) card.style.transform = ''; });
+            const startDrag = (e) => {
+                if (card.classList.contains('is-flipped')) return;
+                if (e.target.closest('.action-btn') || e.target.closest('.progress-bar-wrapper') || e.target.closest('.volume-control-wrapper') || e.target.closest('.clickable-title') || e.target.closest('.pp-icon-container') || e.target.closest('.info-btn') || e.target.closest('.back-cta-btn') || e.target.closest('.back-close-btn')) return;
+                const activeId = this.songs[this.currentIndex]?.id; if (song.id != activeId) return;
+                this.isDragging = true; this.activeCard = card; this.dragStartTime = Date.now();
+                card.classList.add('is-dragging'); const point = e.type.includes('touch') ? e.touches[0] : e;
+                this.startX = point.clientX; this.startY = point.clientY;
+                if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
+            };
+            card.addEventListener('mousedown', startDrag); card.addEventListener('touchstart', startDrag, { passive: true });
+            this.stack.appendChild(card);
+        }
+
+        toggleFlip(songId) {
+            const card = document.getElementById(`card-${songId}`);
+            if (card) { card.classList.toggle('is-flipped'); if (card.classList.contains('is-flipped')) card.style.transform = ''; }
+        }
+
+        handleVolume(val) {
+            const vol = parseFloat(val); this.audio.volume = vol; if (window.audio) window.audio.volume = vol;
+            localStorage.setItem('beathub-volume', vol);
+            const globalSlider = document.getElementById('volume-slider');
+            if (globalSlider) { globalSlider.value = vol; if (typeof window.updateVolumeBackground === 'function') window.updateVolumeBackground(vol); }
+            document.querySelectorAll('.volume-slider-discovery').forEach(input => input.value = vol);
+        }
+
+        startSeek(e) { e.preventDefault(); e.stopPropagation(); this.isSeeking = true; e.currentTarget.classList.add('is-dragging'); this.performSeek(e); if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume(); }
+        performSeek(e) {
+            if (!this.isSeeking) return;
+            const wrapper = document.querySelector('.discovery-card.is-active .progress-bar-wrapper'); if (!wrapper) return;
+            const rect = wrapper.getBoundingClientRect(); const point = e.type.includes('touch') ? e.touches[0] : e;
+            const x = point.clientX - rect.left; const percent = Math.max(0, Math.min(1, x / rect.width));
+            this.elapsedInWindow = percent * this.previewDuration; this.audio.currentTime = this.windowStartTime + this.elapsedInWindow;
+            const progressBar = document.getElementById(`progress-${this.songs[this.currentIndex].id}`); if (progressBar) progressBar.style.width = `${percent * 100}%`;
+        }
+
+        togglePlayPause() {
+            if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
+            if (this.audio.paused) { this.audio.play().then(() => this.updateUIState(false)).catch(e => console.log("Autoplay blocked")); }
+            else { this.audio.pause(); this.updateUIState(true); }
+        }
+
+        updateUIState(isPaused) {
+            const activeCard = document.querySelector('.discovery-card.is-active');
+            if (!activeCard) return;
+            
+            const songId = activeCard.getAttribute('data-song-id');
+            const path = document.getElementById(`pp-path-${songId}`);
+            const vis = activeCard.querySelector('.mini-visualizer');
+            
+            if (path) path.setAttribute('d', isPaused ? "M8 5v14l11-7z" : "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
+            if (vis) {
+                if (isPaused) vis.classList.remove('playing');
+                else vis.classList.add('playing');
+            }
+        }
+
+        handleMove(e) {
+            if (!this.isDragging || !this.activeCard || this.activeCard.classList.contains('is-flipped')) return; 
+            if (e.type === 'touchmove') e.preventDefault();
+            const point = e.type.includes('touch') ? e.touches[0] : e;
+            this.currentX = point.clientX - this.startX; this.currentY = point.clientY - this.startY;
+            const rotate = this.currentX / 15; const lift = Math.min(Math.abs(this.currentX) / 10, 30);
+            this.activeCard.style.boxShadow = `0 ${40 + lift}px ${80 + lift}px rgba(0, 0, 0, 0.7)`;
+            this.activeCard.style.transform = `translate(${this.currentX}px, ${this.currentY}px) rotate(${rotate}deg) scale(1.05)`;
+            const opacity = Math.min(Math.abs(this.currentX) / 150, 1);
+            if (this.currentX > 0) { document.getElementById('swipe-overlay-like').style.opacity = opacity; document.getElementById('swipe-overlay-skip').style.opacity = 0; }
+            else { document.getElementById('swipe-overlay-skip').style.opacity = opacity; document.getElementById('swipe-overlay-like').style.opacity = 0; }
+        }
+
+        handleEnd(e) {
+            if (!this.isDragging || !this.activeCard) return;
+            this.isDragging = false; this.activeCard.classList.remove('is-dragging');
+            if (this.activeCard.classList.contains('is-flipped')) return;
+            const distance = Math.sqrt(this.currentX**2 + this.currentY**2);
+            const duration = Date.now() - this.dragStartTime;
+            if (distance < 10 && duration < 250) { this.activeCard.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; this.activeCard.style.transform = ''; }
+            else {
+                const threshold = 120;
+                if (Math.abs(this.currentX) > threshold) this.swipe(this.currentX > 0 ? 'right' : 'left');
+                else { this.activeCard.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; this.activeCard.style.transform = ''; }
+            }
+            document.getElementById('swipe-overlay-like').style.opacity = 0; document.getElementById('swipe-overlay-skip').style.opacity = 0;
+            this.activeCard = null; this.currentX = 0; this.currentY = 0;
+        }
+
+        async swipe(direction) {
+            const song = this.songs[this.currentIndex]; const card = document.getElementById(`card-${song.id}`); if (!card) return;
+            card.classList.add('is-swiping'); this.history.push({ song, direction }); 
+            const overlay = direction === 'right' ? document.getElementById('swipe-overlay-like') : document.getElementById('swipe-overlay-skip');
+            if (overlay) { overlay.style.opacity = 1; setTimeout(() => overlay.style.opacity = 0, 300); }
+            if (direction === 'right') {
+                this.createConfettiBurst();
+                this.updateDiscoveryCounter(1);
+            }
+            card.style.transition = 'transform 0.6s ease-in, opacity 0.3s ease'; card.classList.add(direction === 'right' ? 'swiped-right' : 'swiped-left');
+            fetch('{% url "music:discovery_action" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' }, body: JSON.stringify({ song_id: song.id, action: direction === 'right' ? 'like' : 'skip' }) });
+            this.currentIndex++; this.stopAudio();
+            setTimeout(() => { card.remove(); this.updateStackPositions(); this.startActiveAudio(); if (this.currentIndex + 2 < this.songs.length) { this.createCard(this.songs[this.currentIndex + 2], 2); this.updateStackPositions(); } if (this.songs.length - this.currentIndex < 5) this.loadSongs(); if (this.currentIndex >= this.songs.length) this.showEmptyState(); }, 300);
+        }
+
+        undo() {
+            if (this.history.length === 0 || this.isUndoing) return;
+            this.isUndoing = true; const last = this.history.pop(); this.currentIndex--; this.stopAudio();
+            fetch('{% url "music:discovery_action" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' }, body: JSON.stringify({ song_id: last.song.id, action: 'undo' }) });
+            document.querySelectorAll('.discovery-card').forEach(c => { c.style.transform = ''; });
+            this.createCard(last.song, 0); const card = document.getElementById(`card-${last.song.id}`);
+            if (card) {
+                card.classList.add('returning');
+                card.classList.add(last.direction === 'right' ? 'returning-right' : 'returning-left');
+            }
+            if (last.direction === 'right') {
+                this.updateDiscoveryCounter(-1);
+            }
+            setTimeout(() => { card.classList.remove('returning', 'returning-right', 'returning-left'); this.isUndoing = false; this.updateStackPositions(); }, 600);
+            this.updateStackPositions(); this.startActiveAudio();
+        }
+
+        updateStackPositions() {
+            const cards = Array.from(this.stack.querySelectorAll('.discovery-card'));
+            cards.forEach((card) => {
+                if (card.classList.contains('returning')) return; 
+                const songId = parseInt(card.getAttribute('data-song-id'));
+                const relativeIndex = this.songs.findIndex(s => s.id === songId) - this.currentIndex;
+                card.classList.remove('is-back-1', 'is-back-2', 'is-active', 'is-swiping');
+                card.style.zIndex = 1;
+                if (relativeIndex === 0) { card.classList.add('is-active'); card.style.opacity = 1; }
+                else if (relativeIndex === 1) { card.classList.add('is-back-1'); card.style.opacity = 1; }
+                else if (relativeIndex === 2) { card.classList.add('is-back-2'); card.style.opacity = 1; }
+                else if (relativeIndex < 0) { card.style.opacity = 0; card.classList.add('is-swiping'); }
+                else { card.style.opacity = 0; }
+            });
+            const undoBtn = document.getElementById('global-undo-btn'); if (undoBtn) { if (this.history.length > 0) undoBtn.classList.add('is-enabled'); else undoBtn.classList.remove('is-enabled'); }
+        }
+
+        startActiveAudio() {
+            const song = this.songs[this.currentIndex]; if (!song) return;
+            this.bg.style.backgroundImage = `url(${song.cover})`; this.extractColorFromImage(song.cover);
+            this.audio.src = song.url;
+            this.audio.onloadedmetadata = () => { this.windowStartTime = this.audio.duration * 0.25; this.audio.currentTime = this.windowStartTime; this.audio.play().then(() => this.updateUIState(false)).catch(() => this.updateUIState(true)); };
+            this.elapsedInWindow = 0; if (this.progressUpdateId) cancelAnimationFrame(this.progressUpdateId);
+            const updateProgress = () => { if (this.audio.paused || this.isSeeking) { this.progressUpdateId = requestAnimationFrame(updateProgress); return; } this.elapsedInWindow = this.audio.currentTime - this.windowStartTime; if (this.elapsedInWindow < 0) { this.audio.currentTime = this.windowStartTime; this.elapsedInWindow = 0; } const progressBar = document.getElementById(`progress-${song.id}`); if (progressBar) progressBar.style.width = `${Math.min(100, (this.elapsedInWindow / this.previewDuration) * 100)}%`; if (this.elapsedInWindow >= this.previewDuration) { this.audio.pause(); this.elapsedInWindow = this.previewDuration; if (progressBar) progressBar.style.width = '100%'; this.updateUIState(true); } this.progressUpdateId = requestAnimationFrame(updateProgress); };
+            this.progressUpdateId = requestAnimationFrame(updateProgress);
+        }
+
+        stopAudio() { this.audio.pause(); if (this.progressUpdateId) cancelAnimationFrame(this.progressUpdateId); }
+
+        updateDiscoveryCounter(delta) {
+            const el = document.getElementById('today-discovery-count');
+            const widget = document.getElementById('stats-widget');
+            if (el && widget) {
+                let current = parseInt(el.innerText) || 0;
+                el.innerText = Math.max(0, current + delta);
+                widget.classList.remove('pulse-anim');
+                void widget.offsetWidth; // trigger reflow
+                widget.classList.add('pulse-anim');
+            }
+        }
+
+        showEmptyState() { if (this.boundHandleKeydown) document.removeEventListener('keydown', this.boundHandleKeydown); this.stack.innerHTML = `<div class="empty-state bg-background-card/40 p-10 rounded-[3rem] border border-border-main backdrop-blur-2xl"><div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-8"><svg class="w-12 h-12 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div><h2 class="text-3xl font-black text-text-main mb-3">To już wszystko!</h2><p class="text-text-muted mb-10 leading-relaxed">{{ g.przesluchales|capfirst }} wszystkie propozycje na dziś. Wróć jutro po nową dawkę inspiracji!</p><button onclick="location.reload()" class="w-full bg-primary text-background-main font-black py-4 rounded-2xl hover:scale-105 transition-all shadow-xl">Spróbuj ponownie</button></div>`; this.bg.style.backgroundImage = 'none'; }
+    }
+    document.addEventListener('turbo:load', () => { if (document.getElementById('card-stack')) window.discovery = new DiscoveryController(); });
+    document.addEventListener('turbo:before-visit', () => { if (window.discovery) window.discovery.stopAudio(); });
+}
+</script>
+{% endblock %}

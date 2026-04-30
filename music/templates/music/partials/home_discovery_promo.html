@@ -1,0 +1,34 @@
+<section>
+    <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-[2.5rem] p-8 md:p-12 border border-white/10 flex flex-col lg:flex-row items-center gap-12 hover:shadow-[0_20px_50px_rgba(79,70,229,0.3)] transition-all group relative overflow-hidden">
+        <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/10 rounded-full blur-[100px]"></div>
+        <div class="absolute top-10 left-10 w-20 h-20 bg-yellow-400/20 rounded-full blur-[40px] animate-pulse"></div>
+        
+        <div class="flex-1 z-10 text-center lg:text-left">
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-xs font-black uppercase tracking-widest mb-6">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                </span>
+                Nowość: Tryb Discovery
+            </div>
+            <h3 class="text-4xl md:text-5xl font-black text-white mb-6 tracking-tight">Znajdź swój następny ulubiony utwór w 15 sekund!</h3>
+            <p class="text-white/80 text-lg mb-8 max-w-xl leading-relaxed">Przesuwaj karty, słuchaj dropów i buduj swoją listę odkryć. Nasz inteligentny algorytm dobierze utwory idealnie pod Twój gust.</p>
+            <a href="{% url 'music:discovery' %}" class="inline-flex items-center gap-3 bg-white text-indigo-600 px-10 py-4 rounded-2xl font-black hover:scale-105 transition-all shadow-2xl group/btn">
+                Rozpocznij Odkrywanie
+                <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+            </a>
+        </div>
+
+        <div class="hidden xl:flex shrink-0 w-80 h-[320px] relative perspective-1000 rotate-12 group-hover:rotate-6 transition-transform duration-500">
+            <div class="absolute inset-0 bg-white/10 rounded-3xl border border-white/20 backdrop-blur-sm rotate-6 translate-x-4 translate-y-4"></div>
+            <div class="absolute inset-0 bg-white/20 rounded-3xl border border-white/30 backdrop-blur-sm -rotate-3 -translate-x-2 -translate-y-2"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-700 rounded-3xl border border-white/40 shadow-2xl flex flex-col items-center justify-center p-6 text-center">
+                <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                </div>
+                <div class="h-2 w-32 bg-white/30 rounded-full mb-2"></div>
+                <div class="h-2 w-20 bg-white/20 rounded-full"></div>
+            </div>
+        </div>
+    </div>
+</section>

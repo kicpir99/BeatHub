@@ -1,0 +1,97 @@
+{% load image_tags %}
+{% load music_filters %}
+<div id="album-card-{{ album.id }}" data-album-id="{{ album.id }}" class="bg-background-card rounded-xl shadow-lg hover:shadow-primary/20 hover:-translate-y-2 transition-all duration-300 border border-border-main group block relative">
+    {% if can_reorder %}
+    <div class="drag-handle absolute top-3 left-3 z-40 w-9 h-9 flex items-center justify-center bg-background-main/60 backdrop-blur-md border border-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:text-primary cursor-grab active:cursor-grabbing shadow-2xl">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </div>
+    {% endif %}
+    <div class="playing-badge absolute -top-3 right-0 z-50 {% if is_red %}bg-rose-600{% else %}bg-primary{% endif %} text-background-main px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest hidden items-center gap-2 shadow-2xl border-2 border-background-main animate-bounce">
+        <div class="flex gap-0.5 items-end h-2.5">
+            <div class="w-0.5 h-1.5 bg-background-main animate-pulse"></div>
+            <div class="w-0.5 h-2.5 bg-background-main animate-pulse" style="animation-delay:0.2s"></div>
+            <div class="w-0.5 h-1 bg-background-main animate-pulse" style="animation-delay:0.4s"></div>
+        </div>
+        Grasz teraz
+    </div>
+    <button onclick="window.handleToggleAlbumLike(event, this, '{{ album.id }}')" 
+            class="absolute top-3 right-3 z-30 p-2 rounded-full bg-background-glass backdrop-blur-md border border-border-main opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 active:scale-95 shadow-xl">
+        <svg class="w-5 h-5 {% if album.id|is_in:liked_album_ids %}text-rose-500 fill-current{% else %}text-text-muted{% endif %} transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+        </svg>
+    </button>
+
+    <a href="{% url 'music:album_detail' album.slug %}" class="block relative rounded-t-xl overflow-hidden {% if minimal %}aspect-square{% endif %}">
+        {% if album.cover %}
+            <img src="{{ album.cover|thumbnail:'300x300' }}" alt="{{ album.title }}" class="w-full {% if minimal %}h-full{% else %}h-48 md:h-56{% endif %} object-cover group-hover:scale-105 transition-transform duration-500">
+        {% else %}
+            <div class="w-full {% if minimal %}h-full{% else %}h-48 md:h-56{% endif %} bg-background-element flex items-center justify-center group-hover:scale-105">
+                <span class="text-text-muted font-medium text-xs">Brak okładki</span>
+            </div>
+        {% endif %}
+        
+        <div class="absolute inset-0 bg-background-main/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div id="play-btn-album-{{ album.id }}" 
+                 data-album-id="{{ album.id }}"
+                 onclick="event.preventDefault(); event.stopPropagation(); window.handleAlbumToggle('{{ album.id }}', [
+                    {% for song in album.songs.all %}
+                    {
+                        id:'{{song.id}}', 
+                        url:'{% if song.audio_file %}{{song.audio_file.url}}{% endif %}', 
+                        title:'{{song.title|escapejs}}', 
+                        artist:'{{song.album.artist.nickname|escapejs}}', 
+                        cover:'{% if song.album.cover %}{{song.album.cover.url}}{% endif %}',
+                        album_slug: '{{song.album.slug}}',
+                        album_id: '{{album.id}}'
+                    }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                 ])" 
+                 class="album-play-trigger pointer-events-auto {% if is_red %}bg-rose-600{% else %}bg-primary{% endif %} text-white p-4 rounded-full shadow-2xl opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer">
+                
+                <svg class="w-7 h-7 fill-current play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                <svg class="w-7 h-7 fill-current pause-icon hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+            </div>
+        </div>
+    </a>
+
+    <div class="p-4 md:p-5">
+        <a href="{% url 'music:album_detail' album.slug %}" class="text-lg font-bold line-clamp-2 text-text-main {% if is_red %}group-hover:text-rose-500{% else %}group-hover:text-primary{% endif %} transition-colors block min-h-[3.5rem] flex items-center leading-tight" title="{{ album.title }}">{{ album.title }}</a>
+        
+        <div class="flex items-center justify-between gap-2 mt-1">
+            <p onclick="event.stopPropagation(); Turbo.visit('{% url 'music:artist_detail' album.artist.slug %}')" 
+               class="text-text-secondary text-sm truncate hover:text-primary transition-colors cursor-pointer inline-block">
+                {{ album.artist.nickname }}
+            </p>
+            {% if minimal %}
+            <p onclick="event.stopPropagation(); Turbo.visit('{% url 'music:album_list' %}?genre={{ album.artist.genre.id }}')" 
+               class="text-[9px] uppercase font-bold bg-background-element text-text-muted px-1.5 py-0.5 rounded transition-all cursor-pointer hover:bg-primary/20 hover:text-primary shrink-0 border border-border-light shadow-sm">
+                {{ album.artist.genre.name }}
+            </p>
+            {% endif %}
+        </div>
+        
+        {% if not minimal %}
+        <div class="flex items-center justify-between mt-4 border-t border-border-main pt-3">
+            <p onclick="event.stopPropagation(); Turbo.visit('{% url 'music:album_list' %}?year={{ album.release_date|date:'Y' }}')" 
+               class="text-text-muted text-xs font-medium hover:text-text-main cursor-pointer transition-colors">
+                {{ album.release_date|date:"Y" }}
+            </p>
+
+            <div onclick="event.stopPropagation(); Turbo.visit('{% url 'music:album_list' %}?sort=-play_count')" 
+                 class="flex items-center gap-1.5 text-text-muted text-[10px] font-mono opacity-80 hover:text-primary cursor-pointer transition-colors"
+                 title="Sortuj wg popularności">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>{{ album.play_count }}</span>
+            </div>
+
+            <p onclick="event.stopPropagation(); Turbo.visit('{% url 'music:album_list' %}?genre={{ album.artist.genre.id }}')" 
+               class="text-[10px] uppercase font-bold bg-background-element text-text-secondary px-2 py-1 rounded-md {% if is_red %}hover:bg-rose-500/20 hover:text-rose-500{% else %}hover:bg-primary/20 hover:text-primary{% endif %} transition-all cursor-pointer border border-border-light shadow-sm">
+                {{ album.artist.genre.name }}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>

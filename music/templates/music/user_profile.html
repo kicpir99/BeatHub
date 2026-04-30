@@ -1,0 +1,668 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profil - {{ profile_user.username }} - BeatHub{% endblock %}
+
+{% block content %}
+<style>
+    /* Styl Premium dla list utworów */
+    .song-row {
+        transition: all 0.2s ease;
+    }
+    .song-row:hover td {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    .song-row:hover td:first-child {
+        border-top-left-radius: 1rem;
+        border-bottom-left-radius: 1rem;
+    }
+    .song-row:hover td:last-child {
+        border-top-right-radius: 1rem;
+        border-bottom-right-radius: 1rem;
+    }
+    .song-row:first-child td:first-child { border-top-left-radius: 1.5rem; }
+    .song-row:first-child td:last-child { border-top-right-radius: 1.5rem; }
+    .song-row:last-child td:first-child { border-bottom-left-radius: 1.5rem; }
+    .song-row:last-child td:last-child { border-bottom-right-radius: 1.5rem; }
+    .song-row td:first-child { position: relative; }
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+    .song-row:first-child td:first-child::before { border-top-left-radius: 1.5rem; }
+    .song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
+
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+    .song-row:hover .equalyzer { display: none !important; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; }
+    .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
+    .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+    .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+    .equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+    @keyframes up-and-down { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+    .song-row td { border-bottom: 1px solid var(--border-main); }
+    .song-row:last-child td { border-bottom: 0; }
+    .song-row .cover-overlay { display: none !important; }
+    .song-row:hover .cover-overlay, .song-row.is-current .cover-overlay { display: flex !important; }
+
+    /* Styl dla Taste Similarity Circle */
+    .similarity-circle {
+        position: relative;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: conic-gradient(
+            {% if taste_similarity >= 80 %}var(--primary){% elif taste_similarity >= 50 %}#f59e0b{% else %}#ef4444{% endif %} {{ taste_similarity }}%, 
+            rgba(255, 255, 255, 0.05) 0
+        );
+        box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        transition: transform 0.3s ease;
+    }
+    .similarity-circle:hover { transform: scale(1.05); }
+    .similarity-circle::before {
+        content: '';
+        position: absolute;
+        width: 84px;
+        height: 84px;
+        background: #111827;
+        border-radius: 50%;
+        z-index: 1;
+    }
+    .similarity-inner {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+    }
+
+    /* Level & XP Badge Styles */
+    .level-badge {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+        box-shadow: 0 4px 15px var(--primary-glow);
+    }
+    .xp-bar-container {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .xp-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+</style>
+
+<div class="px-2">
+    <div class="mb-8">
+        <a href="javascript:history.back()" class="w-fit text-text-secondary hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-element hover:bg-primary/20 transition-colors border border-border-main shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do poprzedniej strony
+        </a>
+    </div>
+
+    <!-- Header profilu -->
+    <div class="flex flex-col md:flex-row items-start md:items-center gap-8 mb-12 bg-background-card p-8 rounded-3xl border border-border-main backdrop-blur-sm shadow-xl relative overflow-hidden">
+        <div class="flex-shrink-0">
+            <img src="{{ profile_user.profile.avatar_url }}" alt="Awatar {{ profile_user.username }}" class="w-40 h-40 rounded-full border-4 border-border-main shadow-2xl object-cover ring-4 ring-white/5 relative z-10">
+        </div>
+        
+        <div class="flex-1 w-full">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-bold text-primary uppercase tracking-widest">Profil Użytkownika</span>
+                        <button onclick="window.copyToClipboard(window.location.href, 'Link do profilu {{ profile_user.username }} skopiowany!')" 
+                                class="text-text-muted hover:text-text-main transition-colors p-1" title="Kopiuj link do profilu">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        </button>
+                    </div>
+                    <h1 class="text-5xl font-black text-text-main mt-1 mb-2">{{ profile_user.username }}</h1>
+                    
+                    <div class="flex items-center gap-4 mb-4">
+                        {% with lvl=profile_user.profile.get_level_data %}
+                        <div class="flex items-center gap-3 bg-background-element px-4 py-2 rounded-2xl border border-border-main">
+                            <div class="level-badge px-3 py-1 rounded-lg text-background-main font-black text-xs uppercase tracking-wider">
+                                LVL {{ lvl.level }}
+                            </div>
+                            <div class="flex flex-col gap-1 w-40 md:w-56">
+                                <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-text-muted">
+                                    <span>EXP: {{ lvl.current_xp_in_level }} / {{ lvl.required_xp_for_level }}</span>
+                                    <span class="text-primary">{{ lvl.progress|floatformat:0 }}%</span>
+                                </div>
+                                <div class="xp-bar-container">
+                                    <div class="xp-bar-fill" style="width: {{ lvl.progress }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endwith %}
+                    </div>
+
+                    <p class="text-text-muted text-sm mb-4">Dołączył: <span class="text-text-secondary font-medium">{{ profile_user.date_joined|date:"d M Y" }}</span></p>
+                    
+                    {% if can_view %}
+                        <div class="flex items-center gap-3 mt-3 mb-4">
+                            {% if profile_user.profile.is_online %}
+                                <div class="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded-full">
+                                    <span class="relative flex h-2 w-2">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                    </span>
+                                    <span class="text-xs font-bold text-primary uppercase tracking-wider">Online</span>
+                                </div>
+                            {% elif profile_user.profile.last_activity %}
+                                <div class="flex items-center gap-2 px-3 py-1 bg-background-element border border-border-main rounded-full">
+                                    <span class="w-2 h-2 rounded-full bg-text-muted opacity-50"></span>
+                                    <span class="text-xs font-medium text-text-muted">
+                                        Ostatnio widziany {{ profile_user.profile.last_activity|timesince }} temu
+                                    </span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {% if profile_user.profile.location %}
+                            <p class="text-gray-400 flex items-center gap-2 mt-2">
+                                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                {{ profile_user.profile.location }}
+                            </p>
+                        {% endif %}
+                    {% endif %}
+
+                    <div class="flex items-center gap-8 mt-6">
+                        <div class="text-left">
+                            <span id="followers-count" class="block text-2xl font-black text-text-main leading-none">{{ followers_count }}</span>
+                            <span class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Obserwujących</span>
+                        </div>
+                        <div class="w-px h-8 bg-border-main"></div>
+                        <div class="text-left">
+                            <span class="block text-2xl font-black text-text-main leading-none">{{ following_count }}</span>
+                            <span class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Obserwowanych</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if is_own_profile %}
+                    <a href="{% url 'music:profile' %}" class="shrink-0 bg-background-element hover:bg-background-card text-text-main font-bold py-3 px-8 rounded-2xl transition-all text-sm flex items-center gap-2 border border-border-main shadow-lg">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        Edytuj profil
+                    </a>
+                {% elif request.user.is_authenticated %}
+                    <div class="flex items-center gap-6">
+                        {% if taste_similarity is not None %}
+                            <div class="hidden lg:flex items-center gap-4 bg-background-element px-4 py-2 rounded-3xl border border-border-main backdrop-blur-md">
+                                <div class="similarity-circle">
+                                    <div class="similarity-inner">
+                                        <span class="block text-xl font-black text-text-main leading-none">{{ taste_similarity }}%</span>
+                                        <span class="text-[8px] font-bold text-text-muted uppercase tracking-widest">Match</span>
+                                    </div>
+                                </div>
+                                <div class="pr-4">
+                                    <h4 class="text-xs font-black text-text-main uppercase tracking-wider mb-1">Zbieżność gustów</h4>
+                                    <p class="text-[10px] text-text-muted leading-tight max-w-[120px]">
+                                        {% if taste_similarity >= 80 %}
+                                            <span class="text-primary font-bold">Muzyczni bliźniacy!</span> Wasze playlisty to niemal jedność.
+                                        {% elif taste_similarity >= 50 %}
+                                            <span class="text-yellow-400 font-bold">Podobne wibracje.</span> Macie wiele wspólnych rytmów.
+                                        {% elif taste_similarity > 20 %}
+                                            <span class="text-blue-400 font-bold">Inny klimat.</span> Ale na pewno znajdziecie coś wspólnego.
+                                        {% else %}
+                                            <span class="text-text-muted font-bold">Osobne światy.</span> Idealna okazja by odkryć coś nowego!
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <button onclick="toggleFollow(this, '{{ profile_user.profile.id }}')" 
+                                style="width: 180px !important; min-width: 180px !important; max-width: 180px !important;"
+                                class="follow-btn shrink-0 flex items-center justify-center px-0 {% if is_following %}bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border-red-500/50{% else %}bg-primary text-background-main hover:scale-105 shadow-primary-glow/20 border-transparent{% endif %} font-bold py-3 rounded-2xl transition-colors border text-sm shadow-lg">
+                            {% if is_following %}Odobserwuj{% else %}Obserwuj{% endif %}
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if can_view %}
+                {% if profile_user.profile.bio %}
+                    <p class="text-text-secondary mt-6 max-w-2xl bg-background-element p-4 rounded-2xl border border-border-main leading-relaxed">{{ profile_user.profile.bio }}</p>
+                {% endif %}
+
+                <div class="flex flex-wrap gap-4 mt-6">
+                    {% if profile_user.profile.instagram_url %}
+                        <a href="{{ profile_user.profile.instagram_url }}" target="_blank" class="text-gray-400 hover:text-pink-500 transition-colors flex items-center gap-2">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                        </a>
+                    {% endif %}
+                    {% if profile_user.profile.twitter_url %}
+                        <a href="{{ profile_user.profile.twitter_url }}" target="_blank" class="text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-2">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723 10.054 10.054 0 01-3.127 1.195 4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                        </a>
+                    {% endif %}
+                    {% if profile_user.profile.website_url %}
+                        <a href="{{ profile_user.profile.website_url }}" target="_blank" class="text-text-muted hover:text-primary transition-colors flex items-center gap-2">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not can_view %}
+        <!-- Komunikat o profilu prywatnym -->
+        <div class="flex flex-col items-center justify-center py-20 bg-background-card rounded-3xl border border-border-main backdrop-blur-sm">
+            <div class="p-6 bg-background-element rounded-full mb-6 text-text-muted">
+                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h2 class="text-3xl font-bold text-text-main mb-2">Profil ograniczony</h2>
+            <p class="text-text-muted text-center max-w-md">
+                {% if visibility == 'followers' %}
+                    Ten profil jest widoczny tylko dla osób, które go obserwują. Zaobserwuj użytkownika, aby zobaczyć jego playlisty i gust muzyczny.
+                {% else %}
+                    Użytkownik zdecydował się ukryć swoje szczegółowe dane przed innymi.
+                {% endif %}
+            </p>
+        </div>
+    {% else %}
+        <!-- Zawartość publicznego profilu -->
+        
+        <!-- SEKTCJA STATYSTYK -->
+        {% if stats %}
+            {% if profile_user.profile.show_profile_stats_publicly or is_own_profile %}
+        <div class="mb-16 space-y-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+                        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-black text-white">Muzyczny Świat</h2>
+                        <p class="text-gray-500 text-sm">Podsumowanie gustu użytkownika {{ profile_user.username }}</p>
+                    </div>
+                </div>
+
+                {% if total_plays_count is not None %}
+                <div class="flex items-center gap-8">
+                    <div class="bg-background-card px-6 py-4 rounded-2xl border border-border-main backdrop-blur-sm">
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Wszystkie odtworzenia</p>
+                        <h3 class="text-2xl font-black text-primary">{{ total_plays_count }}</h3>
+                    </div>
+                    <div class="bg-background-element px-6 py-4 rounded-2xl border border-border-main backdrop-blur-sm">
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Czas słuchania</p>
+                        <h3 class="text-2xl font-black text-indigo-400">{{ total_hours_all }} <span class="text-sm font-bold text-text-muted">h</span></h3>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if profile_user.profile.show_detailed_stats_publicly or is_own_profile %}
+                <a href="{% url 'music:detailed_stats' profile_user.username %}" class="flex items-center gap-2 px-6 py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-sm font-bold rounded-2xl border border-indigo-500/20 transition-all group">
+                    Pełne statystyki
+                    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 p-1 bg-background-element rounded-2xl border border-border-main w-fit mb-8">
+                <button onclick="changeStatsRange('week', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-text-secondary hover:text-text-main">7 Dni</button>
+                <button onclick="changeStatsRange('month', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-background-main shadow-lg shadow-primary-glow/20">30 Dni</button>
+                <button onclick="changeStatsRange('year', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-text-muted hover:text-text-main">Rok</button>
+                <button onclick="changeStatsRange('always', this)" class="range-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-text-muted hover:text-text-main">Zawsze</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div class="lg:col-span-1 bg-background-card rounded-3xl p-6 border border-border-main flex flex-col items-center text-center space-y-4 backdrop-blur-sm relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    <div>
+                        <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Dominujący Gatunek</div>
+                        <div id="topMoodText" class="text-3xl font-black text-text-main bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-400">
+                            {{ stats.top_mood }}
+                        </div>
+                    </div>
+                    <div class="relative w-40 h-40 mx-auto mb-2">
+                        <canvas id="moodChart"></canvas>
+                    </div>
+                    <!-- Legenda i Pasek (Dynamiczne) -->
+                    <div id="moodLegend" class="w-full flex flex-wrap justify-center gap-2 mb-4"></div>
+                    <div class="w-full relative px-2">
+                        <div id="moodBar" class="h-2 w-full rounded-full overflow-hidden flex bg-background-element"></div>
+                        <div id="moodBarTooltip" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-background-card backdrop-blur-md text-[10px] font-bold text-text-main rounded-xl border border-border-main opacity-0 pointer-events-none transition-all duration-200 z-[200] whitespace-nowrap shadow-2xl scale-95 translate-y-2"></div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 bg-background-card rounded-3xl p-6 border border-border-main backdrop-blur-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Aktywność Słuchania</div>
+                        <div id="rangeLabel" class="text-[10px] text-text-muted uppercase tracking-widest px-3 py-1 rounded-full bg-background-element border border-border-main">Ostatnie 30 dni</div>
+                    </div>
+                    <div class="h-64 w-full relative">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Przechowywanie instancji w window, aby Turbo ich nie duplikowało i można było je niszczyć
+            window.moodChartInstance = window.moodChartInstance || null;
+            window.activityChartInstance = window.activityChartInstance || null;
+
+            function initCharts(moodLabels, moodData, activityLabels, activityData) {
+                // Zawsze czyść stare instancje na początku
+                if (window.moodChartInstance) { window.moodChartInstance.destroy(); window.moodChartInstance = null; }
+                if (window.activityChartInstance) { window.activityChartInstance.destroy(); window.activityChartInstance = null; }
+
+                var moodCtx = document.getElementById('moodChart');
+                var legendContainer = document.getElementById('moodLegend');
+                var barContainer = document.getElementById('moodBar');
+                
+                // Zawsze czyść kontenery na początku
+                if (legendContainer) legendContainer.innerHTML = '';
+                if (barContainer) barContainer.innerHTML = '';
+
+                if (moodCtx && moodLabels && moodLabels.length > 0) {
+                    var moodColors = ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#a855f7'];
+                    
+                    window.moodChartInstance = new Chart(moodCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: moodLabels,
+                            datasets: [{
+                                data: moodData,
+                                backgroundColor: moodColors,
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: { 
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { enabled: true }
+                            }, 
+                            cutout: '75%', 
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+
+                    // Generowanie legendy i paska
+                    try {
+                        if (legendContainer && barContainer) {
+                            var total = Array.isArray(moodData) ? moodData.reduce((a, b) => a + b, 0) : 0;
+                            
+                            if (Array.isArray(moodLabels)) {
+                                moodLabels.forEach((label, i) => {
+                                    var count = moodData[i];
+                                    var color = moodColors[i % moodColors.length];
+                                    var percent = total > 0 ? (count / total * 100).toFixed(1) : 0;
+                                    
+                                    // Tag legendy
+                                    var tag = document.createElement('div');
+                                    tag.className = "flex flex-col items-center group cursor-default";
+                                    tag.innerHTML = `
+                                        <div class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all" 
+                                             style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40">
+                                            ${label}
+                                        </div>
+                                        <div class="text-[9px] text-gray-500 mt-1 font-bold group-hover:text-gray-300 transition-colors">
+                                            <span style="color: ${color}">${count}</span> Przesłuchań
+                                        </div>
+                                    `;
+                                    legendContainer.appendChild(tag);
+                                    
+                                    // Segment paska
+                                    if (percent > 0) {
+                                        var segment = document.createElement('div');
+                                        segment.style.width = `${percent}%`;
+                                        segment.style.backgroundColor = color;
+                                        segment.className = "h-full transition-all duration-300 ease-out cursor-help hover:brightness-125";
+                                        
+                                        // Tooltip logic
+                                        var tooltip = document.getElementById('moodBarTooltip');
+                                        segment.onmouseenter = (e) => {
+                                            if (tooltip) {
+                                                tooltip.textContent = `${label}: ${percent}% (${count} odtworzeń)`;
+                                                tooltip.style.opacity = '1';
+                                                tooltip.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+                                                
+                                                // Dynamic positioning relative to segment
+                                                var rect = segment.getBoundingClientRect();
+                                                var parentRect = barContainer.getBoundingClientRect();
+                                                var center = rect.left + rect.width / 2 - parentRect.left;
+                                                tooltip.style.left = `${center}px`;
+                                            }
+                                        };
+                                        segment.onmouseleave = () => {
+                                            if (tooltip) {
+                                                tooltip.style.opacity = '0';
+                                                tooltip.style.transform = 'translateX(-50%) translateY(8px) scale(0.95)';
+                                            }
+                                        };
+                                        
+                                        barContainer.appendChild(segment);
+                                    }
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Błąd przy generowaniu legendy:", e);
+                    }
+                }
+
+                var activityCtx = document.getElementById('activityChart');
+                if (activityCtx && activityLabels && activityLabels.length > 0) {
+                    window.activityChartInstance = new Chart(activityCtx, {
+                        type: 'line',
+                        data: {
+                            labels: activityLabels,
+                            datasets: [{
+                                label: 'Odtworzenia',
+                                data: activityData,
+                                borderColor: 'var(--primary)',
+                                backgroundColor: 'var(--primary-glow-light)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { enabled: true }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: 'var(--border-main)' }, ticks: { color: 'var(--text-muted)' } },
+                                x: { grid: { display: false }, ticks: { color: 'var(--text-muted)' } }
+                            }
+                        }
+                    });
+                }
+            }
+
+            async function fetchStats(start = null, end = null, label = "Wybrany okres") {
+                var rangeLabel = document.getElementById('rangeLabel');
+                rangeLabel.innerHTML = '<span class="animate-pulse">Ładowanie...</span>';
+                
+                var url = '{% url "music:get_stats" %}?user_id={{ profile_user.id }}';
+                if (start && end) url += `&start=${start}&end=${end}`;
+                
+                try {
+                    var response = await fetch(url);
+                    var data = await response.json();
+                    if (data.status === 'success') {
+                        initCharts(
+                            JSON.parse(data.stats.mood_labels),
+                            JSON.parse(data.stats.mood_data),
+                            JSON.parse(data.stats.activity_labels),
+                            JSON.parse(data.stats.activity_data)
+                        );
+                        document.getElementById('topMoodText').textContent = data.stats.top_mood;
+                        rangeLabel.textContent = label;
+                    }
+                } catch (e) { console.error(e); }
+            }
+
+            function changeStatsRange(range, btn) {
+                document.querySelectorAll('.range-btn').forEach(b => {
+                    b.classList.remove('bg-primary', 'text-background-main', 'shadow-lg', 'shadow-primary-glow/20');
+                    b.classList.add('text-text-secondary');
+                });
+                btn.classList.add('bg-primary', 'text-background-main', 'shadow-lg', 'shadow-primary-glow/20');
+                
+                var now = new Date();
+                var start = new Date();
+                var label = "";
+
+                if (range === 'week') { start.setDate(now.getDate() - 7); label = "Ostatnie 7 dni"; }
+                else if (range === 'month') { start.setDate(now.getDate() - 30); label = "Ostatnie 30 dni"; }
+                else if (range === 'year') { start.setFullYear(now.getFullYear() - 1); label = "Ostatni rok"; }
+                else if (range === 'always') { start = new Date('{{ profile_user.date_joined|date:"Y-m-d" }}'); label = "Zawsze"; }
+
+                fetchStats(start.toISOString().split('T')[0], now.toISOString().split('T')[0], label);
+            }
+
+        function runInit() {
+            requestAnimationFrame(() => {
+                if (document.getElementById('moodChart')) {
+                    initCharts(
+                        {{ stats.mood_labels|safe }},
+                        {{ stats.mood_data|safe }},
+                        {{ stats.activity_labels|safe }},
+                        {{ stats.activity_data|safe }}
+                    );
+                }
+            });
+        }
+
+        // Turbo wykonuje skrypty w body przy każdym przejściu, więc wywołujemy bezpośrednio
+        // bez dodawania stałych słuchaczy do 'document', co zapobiega wyciekom danych
+        runInit();
+    </script>
+        {% endif %}
+        {% endif %}
+        
+        <!-- Publiczne Playlisty -->
+        <!-- Publiczne Playlisty -->
+        <div class="mb-16">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-3xl font-black text-white">Publiczne Playlisty</h2>
+            </div>
+            
+            {% if public_playlists %}
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {% for playlist in public_playlists %}
+                    {% include 'music/playlist_card.html' with playlist=playlist %}
+                {% endfor %}
+            </div>
+
+            <!-- Paginacja playlist -->
+            {% if public_playlists.paginator.num_pages > 1 %}
+                <div class="mt-8 flex justify-center">
+                    <div class="flex items-center gap-2 bg-background-element p-2 rounded-2xl border border-border-main backdrop-blur-md">
+                        {% if public_playlists.has_previous %}
+                            <a href="?playlists_page={{ public_playlists.previous_page_number }}" 
+                               class="w-10 h-10 flex items-center justify-center rounded-xl bg-background-element hover:bg-primary hover:text-background-main transition-all text-text-main">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            </a>
+                        {% endif %}
+                        
+                        <span class="px-4 text-xs font-bold text-text-muted">
+                            Strona <span class="text-text-main">{{ public_playlists.number }}</span> z {{ public_playlists.paginator.num_pages }}
+                        </span>
+
+                        {% if public_playlists.has_next %}
+                            <a href="?playlists_page={{ public_playlists.next_page_number }}" 
+                               class="w-10 h-10 flex items-center justify-center rounded-xl bg-background-element hover:bg-primary hover:text-background-main transition-all text-text-main">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            {% else %}
+            <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm flex flex-col items-center justify-center text-center py-12">
+                <svg class="w-16 h-16 text-text-muted mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                <h3 class="text-xl font-bold text-text-muted mb-2">Brak publicznych playlist</h3>
+                <p class="text-text-muted opacity-60">Użytkownik nie udostępnił jeszcze żadnych playlist.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
+            <!-- Ulubieni Wykonawcy -->
+            {% include 'music/partials/favorite_artists_list.html' with favorite_artists=favorite_artists title="Ulubieni Wykonawcy" empty_message="Użytkownik nie polubił jeszcze żadnych artystów." %}
+
+            <!-- Ostatnio Polubione -->
+            {% include 'music/partials/recent_liked_songs_list.html' with recent_liked_songs=recent_liked_songs title="Ostatnio Polubione Utwory" empty_message="Użytkownik nie polubił jeszcze żadnych utworów." %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function toggleFollow(btn, profileId) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    
+    try {
+        var response = await fetch('{% url "music:toggle_follow" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ profile_id: profileId })
+        });
+        
+        var data = await response.json();
+        
+        if (data.status === 'success') {
+            if (data.is_following) {
+                btn.innerHTML = 'Odobserwuj';
+                btn.className = 'follow-btn shrink-0 flex items-center justify-center px-0 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/50 font-bold py-3 rounded-2xl transition-colors text-sm shadow-lg';
+                btn.style.setProperty('width', '180px', 'important');
+                btn.style.setProperty('min-width', '180px', 'important');
+                btn.style.setProperty('max-width', '180px', 'important');
+            } else {
+                btn.innerHTML = 'Obserwuj';
+                btn.className = 'follow-btn shrink-0 flex items-center justify-center px-0 bg-primary text-background-main hover:scale-105 shadow-primary-glow/20 font-bold py-3 rounded-2xl transition-colors border border-transparent text-sm shadow-lg';
+                btn.style.setProperty('width', '180px', 'important');
+                btn.style.setProperty('min-width', '180px', 'important');
+                btn.style.setProperty('max-width', '180px', 'important');
+            }
+            
+            // Aktualizacja licznika followersów
+            var followerCounter = document.getElementById('followers-count');
+            if (followerCounter) {
+                followerCounter.innerHTML = data.followers_count;
+            }
+            
+            if (window.showDynamicToast) {
+                window.showDynamicToast(data.message, true);
+            }
+        } else {
+            if (window.showDynamicToast) window.showDynamicToast(data.message, false);
+        }
+    } catch (error) {
+        console.error('Błąd follow:', error);
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

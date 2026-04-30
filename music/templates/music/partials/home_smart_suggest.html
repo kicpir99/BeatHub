@@ -1,0 +1,64 @@
+{% if followed_artists_songs %}
+{% load image_tags %}
+<section>
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h2 class="text-3xl font-black text-text-main tracking-tight">Może Ci się spodobać</h2>
+            <p class="text-text-secondary text-sm mt-1">Najnowsze brzmienia od artystów, których obserwujesz lub często słuchasz</p>
+        </div>
+    </div>
+    
+    <div class="relative group">
+        <!-- Przycisk Poprzedni -->
+        <button id="prev-btn-smart" onclick="scrollCarousel('smart-suggest-carousel', -1)" class="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-10 bg-background-glass backdrop-blur-md hover:bg-primary text-text-main hover:text-background-main p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all focus:outline-none hidden md:block border border-border-main">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        </button>
+
+        <div id="smart-suggest-carousel" class="flex overflow-x-auto gap-6 pb-8 pt-4 px-10 -mx-10 hide-scrollbar scroll-smooth snap-x snap-mandatory" style="scroll-padding-inline: 40px;">
+            {% for song in followed_artists_songs %}
+            <div id="song-card-{{ song.id }}" 
+                 onclick='window.handleSongCardToggle([{% for s in followed_artists_songs %}{id:"{{s.id}}", url:"{% if s.audio_file %}{{s.audio_file.url}}{% endif %}", title:"{{s.title|escapejs}}", artist:"{% if s.album.artist %}{{s.album.artist.nickname|escapejs}}{% endif %}", cover:"{% if s.album.cover %}{{s.album.cover.url}}{% endif %}", album_slug:"{{s.album.slug|escapejs}}"}{% if not forloop.last %},{% endif %}{% endfor %}], {{ forloop.counter0 }}, {type:"artist_news", id:0}, "{{ song.id }}")'
+                 class="flex-none w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-6rem)/5)] carousel-card bg-background-card p-4 rounded-[2rem] border border-border-main hover:bg-background-element hover:border-primary/30 transition-all group/card relative overflow-hidden snap-start shadow-lg cursor-pointer">
+                
+                <div class="playing-badge absolute top-4 right-4 z-50 bg-primary text-background-main px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest hidden items-center gap-2 shadow-2xl border-2 border-background-main animate-bounce">
+                    <div class="flex gap-0.5 items-end h-2.5">
+                        <div class="w-0.5 h-1.5 bg-background-main animate-pulse"></div>
+                        <div class="w-0.5 h-2.5 bg-background-main animate-pulse" style="animation-delay:0.2s"></div>
+                        <div class="w-0.5 h-1 bg-background-main animate-pulse" style="animation-delay:0.4s"></div>
+                    </div>
+                    Grasz teraz
+                </div>
+                
+                <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
+                
+                <div class="relative aspect-square rounded-2xl overflow-hidden mb-4 shadow-xl">
+                    <img src="{{ song.album.cover|thumbnail:'300x300' }}" class="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110" alt="{{ song.title }}">
+                    <div class="carousel-overlay absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                        <button data-song-id="{{ song.id }}" 
+                                class="song-card-play-trigger w-16 h-16 bg-primary rounded-full flex items-center justify-center text-background-main transform scale-90 group-hover/card:scale-100 transition-all shadow-xl hover:bg-background-main hover:text-primary active:scale-95">
+                            <svg class="w-8 h-8 fill-current play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                            <svg class="w-8 h-8 fill-current pause-icon hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <div class="text-text-main font-black truncate text-lg group-hover/card:text-primary transition-colors">{{ song.title }}</div>
+                    <div class="flex items-center justify-between mt-1">
+                        <a href="{% url 'music:artist_detail' song.album.artist.slug %}" 
+                           class="text-[10px] text-text-muted hover:text-primary transition-colors uppercase tracking-[0.2em] font-black"
+                           onclick="event.stopPropagation()">{{ song.album.artist.nickname }}</a>
+                        <span class="text-[9px] text-text-muted opacity-50 font-bold uppercase">{{ song.album.release_date|date:"Y" }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Przycisk Następny -->
+        <button id="next-btn-smart" onclick="scrollCarousel('smart-suggest-carousel', 1)" class="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-10 bg-background-glass backdrop-blur-md hover:bg-primary text-text-main hover:text-background-main p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all focus:outline-none hidden md:block border border-border-main">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        </button>
+    </div>
+</section>
+{% endif %}

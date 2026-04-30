@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ album.title }} - BeatHub{% endblock %}
+
+{% block content %}
+<style>
+    /* Styl Premium dla list utworów */
+    .song-row {
+        transition: all 0.2s ease;
+    }
+    .song-row:hover td {
+        background-color: var(--background-element);
+    }
+    .song-row:hover td:first-child {
+        border-top-left-radius: 1rem;
+        border-bottom-left-radius: 1rem;
+    }
+    .song-row:hover td:last-child {
+        border-top-right-radius: 1rem;
+        border-bottom-right-radius: 1rem;
+    }
+
+    /* Pasek boczny na pierwszej komórce */
+    .song-row td:first-child { position: relative; }
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+
+    .song-row:first-child td:first-child::before { border-top-left-radius: 1.5rem; }
+    .song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
+
+    /* Ukrywanie numeru gdy piosenka jest aktywna */
+    .song-row.is-current .number-span { display: none; }
+
+    /* Logika ikon i equalizera */
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
+
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+
+    .song-row:hover .equalyzer { display: none !important; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+
+    /* ANIMACJA FAL (Equalizer) */
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; }
+    .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
+    .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+    .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+    .equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+
+    @keyframes up-and-down {
+        0%, 100% { height: 4px; }
+        50% { height: 14px; }
+    }
+
+    .song-row td { border-bottom: 1px solid var(--border-main); opacity: 0.8; }
+    .song-row:last-child td { border-bottom: 0; }
+
+    thead th { border-bottom: 1px solid var(--border-main); }
+</style>
+
+    <div class="mb-8">
+        <a href="{% url 'music:album_list' %}" class="w-fit text-text-secondary hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-element hover:bg-primary/20 transition-colors border border-border-main shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do wszystkich albumów
+        </a>
+    </div>
+
+    <div id="album-header-card" class="bg-background-card rounded-3xl p-6 md:p-10 border border-border-main shadow-2xl backdrop-blur-sm flex flex-col md:flex-row gap-8 lg:gap-12 mb-12 transition-all duration-1000 overflow-hidden relative">
+        <div class="w-full md:w-1/3 lg:w-1/4 flex-shrink-0 z-10">
+            <div class="rounded-2xl overflow-hidden shadow-lg border border-border-main relative group cursor-pointer" onclick="window.playGlobalQueue(window.pageQueue, 0, {type:'album', id:{{album.id}}})">
+                {% if album.cover %}<img src="{{ album.cover.url }}" alt="{{ album.title }}" class="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110">
+                {% else %}<div class="w-full aspect-square bg-background-element flex items-center justify-center"><span class="text-text-muted">Brak okładki</span></div>{% endif %}
+                <div class="absolute inset-0 bg-background-main/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="bg-primary text-background-main p-4 rounded-full shadow-xl transform scale-75 group-hover:scale-100 transition-transform"><svg class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full md:w-2/3 lg:w-3/4 flex flex-col justify-center z-10">
+            <div class="mb-2">
+                <a href="{% url 'music:album_list' %}?genre={{ album.artist.genre.id }}" 
+                   class="px-3 py-1 bg-background-element text-primary text-sm font-bold rounded-full border border-border-main hover:bg-primary hover:text-background-main transition-all inline-block shadow-sm">
+                    {{ album.artist.genre.name }}
+                </a>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-black text-text-main mt-4 mb-2 drop-shadow-sm">{{ album.title }}</h1>
+            
+            <h2 class="text-2xl text-text-secondary font-medium mb-8">
+                Wykonawca: 
+                <span onclick="Turbo.visit('{% url 'music:artist_detail' album.artist.slug %}')" 
+                      class="text-text-main hover:text-primary cursor-pointer transition-colors hover:underline underline-offset-4 decoration-primary/30">
+                    {{ album.artist.nickname }}
+                </span>
+            </h2>
+
+            <div class="flex items-center gap-4 mb-8">
+                <button onclick="window.playGlobalQueue(window.pageQueue, 0, {type:'album', id:{{album.id}}})" class="flex items-center gap-3 bg-primary hover:bg-primary-hover text-background-main px-8 py-3 rounded-full font-bold text-lg transition-all shadow-lg active:scale-95 shrink-0">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg> Odtwarzaj wszystko
+                </button>
+
+                <button id="selection-mode-btn" onclick="window.toggleSelectionMode()" class="flex items-center gap-3 px-6 py-3 rounded-full border border-border-main hover:border-primary/50 hover:bg-background-element text-text-secondary hover:text-text-main font-bold transition-all active:scale-95 group/sel shrink-0 bg-background-card/50 shadow-sm">
+                    <svg class="w-5 h-5 group-hover/sel:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <span>Wybierz</span>
+                </button>
+
+                <button onclick="window.handleShare(event, '{{ album.title|escapejs }} - {{ album.artist.nickname|escapejs }}', '{% url 'music:album_detail' album.slug %}')" 
+                        class="flex items-center gap-3 px-6 py-3 rounded-full border border-border-main hover:border-blue-500/50 hover:bg-background-element text-text-secondary hover:text-text-main font-bold transition-all active:scale-95 group/share shrink-0 bg-background-card/50 shadow-sm">
+                    <svg class="w-5 h-5 group-hover/share:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    Udostępnij
+                </button>
+            </div>
+
+            <div class="flex gap-12">
+                    <div onclick="Turbo.visit('{% url 'music:album_list' %}?year={{ album.release_date|date:'Y' }}')" 
+                         class="group/stat cursor-pointer">
+                        <p class="text-text-muted text-xs uppercase tracking-widest mb-3 group-hover/stat:text-primary transition-colors">Rok</p>
+                        <p class="text-lg font-bold text-text-secondary group-hover/stat:text-text-main transition-colors">{{ album.release_date|date:"Y" }}</p>
+                    </div>
+                    
+                    <div>
+                        <p class="text-text-muted text-xs uppercase tracking-widest mb-3">Utwory</p>
+                        <p class="text-lg font-bold text-text-secondary">{{ album.songs.count }}</p>
+                    </div>
+
+                    <div onclick="Turbo.visit('{% url 'music:album_list' %}?sort=-play_count')" 
+                         class="group/stat cursor-pointer" 
+                         title="Sortuj albumy wg popularności">
+                        <p class="text-text-muted text-xs uppercase tracking-widest mb-3 group-hover/stat:text-primary transition-colors">Odtworzenia</p>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-primary group-hover/stat:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-lg font-bold text-text-secondary font-mono group-hover/stat:text-text-main transition-colors">{{ album.play_count }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <div class="bg-background-card rounded-3xl border border-border-main overflow-visible shadow-xl mb-12 pb-2">
+        <table class="w-full text-left border-separate border-spacing-0">
+            <thead>
+                <tr class="uppercase text-[10px] font-bold tracking-widest text-text-muted">
+                    <th class="bg-background-element/50 py-4 px-6 w-20 text-center border-b border-border-main rounded-tl-3xl cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('id')">
+                        <div class="flex items-center justify-center gap-2">
+                            #
+                            <span class="sort-icon">
+                                {% if current_sort == 'id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                        </div>
+                    </th>
+                    
+                    <th class="bg-background-element/50 py-4 px-6 border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('title')">
+                        <div class="flex items-center gap-2">
+                            Tytuł utworu
+                            <span class="sort-icon">
+                                {% if current_sort == 'title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                        </div>
+                    </th>
+                    
+                    <th class="bg-background-element/50 py-4 px-6 text-right border-b border-border-main hidden sm:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('play_count')">
+                        <div class="flex items-center justify-end gap-2">
+                            <span class="sort-icon">
+                                {% if current_sort == 'play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>{% endif %}
+                            </span>
+                            Odtworzenia
+                        </div>
+                    </th>
+                    
+                    <th class="bg-background-element/50 py-4 px-6 text-right w-24 border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('duration_sec')">
+                        <div class="flex items-center justify-end gap-2">
+                            <span class="sort-icon">
+                                {% if current_sort == 'duration_sec' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-duration_sec' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>{% endif %}
+                            </span>
+                            Czas
+                        </div>
+                    </th>
+                    
+                    <th class="bg-background-element/50 py-4 px-4 w-12 border-b border-border-main rounded-tr-3xl"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700/30">
+                {% for song in songs %}
+                    {% include 'music/partials/song_row.html' with song=song row_context='detail' context_type='album' context_id=album.id %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.pageQueue = [
+        {% for song in album.songs.all %}
+        { 
+            id: "{{ song.id }}", 
+            url: "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}", 
+            title: "{{ song.title|escapejs }}", 
+            artist: "{{ song.album.artist.nickname|escapejs }}", 
+            artist_slug: "{{ song.album.artist.slug }}",
+            featured_artists: [{% for g in song.featured_artists.all %}{nickname:"{{ g.nickname|escapejs }}", slug:"{{ g.slug }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            cover: "{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}",
+            album_slug: "{{ album.slug }}"
+        }{% if not forloop.last or other_artist_songs %},{% endif %}
+        {% endfor %}
+
+        {% for song in other_artist_songs %}
+        { 
+            id: "{{ song.id }}", 
+            url: "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}", 
+            title: "{{ song.title|escapejs }}", 
+            artist: "{{ song.album.artist.nickname|escapejs }}", 
+            artist_slug: "{{ song.album.artist.slug }}",
+            featured_artists: [{% for g in song.featured_artists.all %}{nickname:"{{ g.nickname|escapejs }}", slug:"{{ g.slug }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            cover: "{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}",
+            album_slug: "{{ album.slug }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    (function() {
+        const img = document.querySelector('#album-header-card img');
+        const card = document.getElementById('album-header-card');
+        
+        if (img && card) {
+            const extractColor = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 1;
+                canvas.height = 1;
+                
+                try {
+                    ctx.drawImage(img, 0, 0, 1, 1);
+                    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+                    const color = `rgba(${r}, ${g}, ${b}, 0.2)`;
+                    const colorSolid = `rgba(${r}, ${g}, ${b}, 0.4)`;
+                    
+                    // Czytamy kolor tła z CSS variable
+                    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--background-main').trim();
+                    
+                    card.style.background = `linear-gradient(135deg, ${color} 0%, ${bgColor} 100%)`;
+                    card.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+                    card.style.boxShadow = `0 25px 50px -12px rgba(0, 0, 0, 0.2), 0 0 40px -10px ${colorSolid}`;
+                } catch (e) {
+                    console.error("Błąd wyciągania koloru:", e);
+                }
+            };
+
+            if (img.complete) {
+                extractColor();
+            } else {
+                img.addEventListener('load', extractColor);
+            }
+        }
+    })();
+</script>
+{% endblock %}

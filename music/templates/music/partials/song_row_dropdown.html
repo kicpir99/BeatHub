@@ -1,0 +1,35 @@
+{% load music_filters %}
+<div id="dropdown-{{ row_context }}-{{ song.id }}" class="song-dropdown hidden absolute right-8 {% if forloop.revcounter <= 3 %}bottom-full mb-2{% else %}top-10{% endif %} w-48 bg-background-card/95 backdrop-blur-md rounded-xl shadow-2xl border border-border-main z-50 text-left py-2 transform opacity-0 transition-opacity">
+    
+    <button data-action="toggle-like" data-song-id="{{ song.id }}" data-is-playlist="{% if row_context == 'playlist' %}true{% else %}false{% endif %}"
+            class="w-full text-left px-4 py-2 text-sm hover:bg-background-element flex items-center gap-3 transition-colors text-text-muted hover:text-text-main">
+        {% with is_liked=song.id|is_in:liked_song_ids %}
+            {% include 'music/partials/icons.html' with icon='like' active=is_liked class='w-4 h-4' %}
+            <span>{% if is_liked %}Odlub{% else %}Polub{% endif %}</span>
+        {% endwith %}
+    </button>
+    
+    <div class="border-t border-border-main my-1"></div>
+
+    {% if row_context == 'playlist' and playlist.owner == request.user %}
+        <button data-action="remove-from-playlist" data-pos-id="{{ pos.id }}" data-song-id="{{ song.id }}"
+                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-background-element flex items-center gap-3 transition-colors">
+            {% include 'music/partials/icons.html' with icon='trash' class='w-4 h-4' %}
+            <span>Usuń z playlisty</span>
+        </button>
+    {% endif %}
+
+    <button data-action="share-song" data-song-title="{{ song.title|escapejs }} - {{ song.album.artist.nickname|escapejs }}" data-share-url="{% url 'music:album_detail' song.album.slug %}?play=1&song_id={{ song.id }}"
+            class="w-full text-left px-4 py-2 text-sm text-text-muted hover:text-text-main hover:bg-background-element flex items-center gap-3 transition-colors">
+        {% include 'music/partials/icons.html' with icon='share' class='w-4 h-4' %}
+        Udostępnij
+    </button>
+    
+    {% if user.is_authenticated %}
+        <button data-action="add-to-playlist" data-song-id="{{ song.id }}" data-song-title="{{ song.title|escapejs }}"
+                class="w-full text-left px-4 py-2 text-sm text-text-muted hover:text-text-main hover:bg-background-element flex items-center gap-3 transition-colors">
+            {% include 'music/partials/icons.html' with icon='plus' class='w-4 h-4' %}
+            Dodaj do playlisty
+        </button>
+    {% endif %}
+</div>

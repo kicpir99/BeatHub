@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Szukaj użytkowników - BeatHub{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pb-20">
+    <!-- Header Section -->
+    <div class="relative py-12 mb-8">
+        <div class="relative z-10">
+            <h1 class="text-4xl md:text-5xl font-black text-text-main mb-4 tracking-tighter">
+                Znajdź <span class="text-primary">znajomych</span>
+            </h1>
+            <p class="text-text-secondary text-lg max-w-2xl leading-relaxed">
+                Odkrywaj profile innych melomanów, obserwuj ich i sprawdzaj co nowego w ich bibliotekach.
+            </p>
+        </div>
+    </div>
+
+    <!-- Filters & Search Bar -->
+    <div class="bg-background-card/80 backdrop-blur-md p-6 rounded-3xl border border-border-main mb-8 sticky top-4 z-40 shadow-2xl">
+        <form method="GET" action="{% url 'music:user_search' %}" id="user-filter-form" class="flex flex-col md:flex-row gap-4">
+            <div class="relative flex-1 group">
+                <input type="text" name="q" value="{{ query }}" placeholder="Szukaj po nazwie użytkownika, bio lub lokalizacji..." 
+                       class="w-full bg-background-element border border-border-main text-text-main pl-12 pr-4 py-4 rounded-2xl focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all hover:border-border-light">
+                <svg class="w-6 h-6 text-text-muted absolute left-4 top-1/2 -translate-y-1/2 group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            
+            <div class="flex gap-2">
+                <select name="sort" onchange="this.form.submit()" 
+                        class="bg-background-element border border-border-main text-text-main px-6 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
+                    <option value="-followers_count" {% if sort == '-followers_count' %}selected{% endif %}>Najpopularniejsi</option>
+                    <option value="-playlists_count" {% if sort == '-playlists_count' %}selected{% endif %}>Najwięcej playlist</option>
+                    <option value="username" {% if sort == 'username' %}selected{% endif %}>Alfabetycznie</option>
+                </select>
+                
+                {% if query or sort != '-followers_count' %}
+                    <a href="{% url 'music:user_search' %}" class="bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white px-6 py-4 rounded-2xl transition-all flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        <span class="hidden md:inline">Wyczyść</span>
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Grid -->
+    <div id="user-results-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {% for profile in profiles %}
+            <div class="group relative bg-background-card rounded-[2.5rem] p-6 border border-border-main hover:bg-background-element transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl overflow-hidden">
+                <!-- Background decoration -->
+                <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all"></div>
+                
+                <div class="relative flex flex-col items-center text-center">
+                    <!-- Avatar -->
+                    <div class="relative mb-6">
+                        <a href="{% url 'music:user_profile' profile.user.username %}" class="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-primary to-blue-500 overflow-hidden shadow-2xl block hover:scale-105 transition-transform relative">
+                            <img src="{{ profile.avatar_url }}" alt="{{ profile.user.username }}" class="w-full h-full rounded-full object-cover bg-background-main border-4 border-background-main">
+                            
+                            {% if profile.visibility == 'public' or profile.id in following_ids %}
+                                {% if profile.is_online %}
+                                    <div class="absolute bottom-1 right-1 flex h-5 w-5">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-5 w-5 bg-primary border-2 border-background-card"></span>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        </a>
+                        {% if profile.user.is_staff %}
+                            <div class="absolute -bottom-1 -right-1 bg-blue-500 text-white p-1.5 rounded-full shadow-lg" title="Team BeatHub">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.64.304 1.25.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path></svg>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <a href="{% url 'music:user_profile' profile.user.username %}" class="group/name">
+                        <h3 class="text-2xl font-bold text-text-main mb-1 group-hover/name:text-primary transition-colors flex items-center justify-center gap-2">
+                            {{ profile.user.username }}
+                            {% if profile.visibility == 'followers' %}
+                                <div class="relative group/lock">
+                                    <svg class="w-4 h-4 text-gray-500 hover:text-yellow-500 transition-colors cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-[10px] text-gray-300 rounded-lg opacity-0 group-hover/lock:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-gray-700 shadow-xl z-50">
+                                        Profil widoczny tylko dla obserwujących
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </h3>
+                    </a>
+                    {% if profile.visibility == 'public' or profile.id in following_ids %}
+                        {% if not profile.is_online and profile.last_activity %}
+                            <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2 italic">
+                                Widziany {{ profile.last_activity|timesince }} temu
+                            </p>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if profile.location %}
+                        <p class="text-text-secondary text-xs mb-4 flex items-center gap-1.5 justify-center">
+                            <svg class="w-3.5 h-3.5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            {{ profile.location }}
+                        </p>
+                    {% endif %}
+
+                    {% if profile.bio %}
+                        <p class="text-text-secondary text-sm mb-6 line-clamp-2 px-2 italic">{{ profile.bio }}</p>
+                    {% endif %}
+
+                    <!-- Stats -->
+                    <div class="flex items-center gap-6 mb-8">
+                        <div class="text-center">
+                            <span id="followers-count-{{ profile.id }}" class="block text-xl font-black text-text-main leading-none">{{ profile.followers_count }}</span>
+                            <span class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Obserwujących</span>
+                        </div>
+                        <div class="w-px h-8 bg-border-main"></div>
+                        <div class="text-center">
+                            <span class="block text-xl font-black text-text-main leading-none">{{ profile.playlists_count }}</span>
+                            <span class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Playlist</span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-3 w-full">
+                        <a href="{% url 'music:user_profile' profile.user.username %}" 
+                           class="flex-1 bg-background-element hover:bg-background-main text-text-main border border-border-main font-bold py-3 rounded-2xl transition-all shadow-lg active:scale-95 text-sm">
+                            Profil
+                        </a>
+                        
+                        {% if request.user.is_authenticated and profile.user != request.user %}
+                            <button onclick="toggleFollow(this, '{{ profile.id }}')" 
+                                    class="follow-btn flex-1 {% if profile.id in following_ids %}bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border-red-500/50{% else %}bg-primary text-background-main hover:scale-105 shadow-primary-glow/20{% endif %} font-bold py-3 rounded-2xl transition-all border text-sm">
+                                {% if profile.id in following_ids %}Odobserwuj{% else %}Obserwuj{% endif %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-span-full py-20 text-center">
+                <div class="w-24 h-24 bg-background-card rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-12 h-12 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                </div>
+                <h3 class="text-2xl font-bold text-text-main mb-2">Nie znaleźliśmy nikogo takiego</h3>
+                <p class="text-text-secondary">Spróbuj zmienić zapytanie lub usuń filtry.</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <div class="mt-12 flex justify-center">
+            <div class="flex items-center gap-2 bg-background-card/80 p-2 rounded-3xl border border-border-main backdrop-blur-md">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}" 
+                       class="w-12 h-12 flex items-center justify-center rounded-2xl bg-background-element hover:bg-primary hover:text-background-main transition-all text-text-main border border-border-main">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </a>
+                {% endif %}
+                
+                <span class="px-6 text-text-main font-bold">
+                    Strona <span class="text-primary">{{ page_obj.number }}</span> z {{ paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}" 
+                       class="w-12 h-12 flex items-center justify-center rounded-2xl bg-background-element hover:bg-primary hover:text-background-main transition-all text-text-main border border-border-main">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+async function toggleFollow(btn, profileId) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('{% url "music:toggle_follow" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ profile_id: profileId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            if (data.is_following) {
+                btn.innerHTML = 'Odobserwuj';
+                btn.className = 'follow-btn flex-1 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/50 font-bold py-3 rounded-2xl transition-all text-sm';
+            } else {
+                btn.innerHTML = 'Obserwuj';
+                btn.className = 'follow-btn flex-1 bg-primary text-background-main hover:scale-105 shadow-primary-glow/20 font-bold py-3 rounded-2xl transition-all border border-transparent text-sm';
+            }
+            
+            // Aktualizacja licznika followersów konkretnego użytkownika
+            const followerCounter = document.getElementById(`followers-count-${profileId}`);
+            if (followerCounter) {
+                followerCounter.innerHTML = data.followers_count;
+            }
+            
+            if (window.showDynamicToast) {
+                window.showDynamicToast(data.message);
+            }
+        } else {
+            if (window.showDynamicToast) window.showDynamicToast(data.message, false);
+        }
+    } catch (error) {
+        console.error('Błąd follow:', error);
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

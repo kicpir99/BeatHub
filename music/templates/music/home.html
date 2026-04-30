@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load image_tags %}
+
+{% block title %}Witaj w BeatHub - Poczuj rytm{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'music/css/home.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="space-y-16 pb-20">
+
+    {% include 'music/partials/home_hero.html' %}
+
+    {% include 'music/partials/home_discovery_promo.html' %}
+
+    <div id="resume-section-container">
+        {% include 'music/partials/skeleton_resume.html' %}
+    </div>
+
+    {% include 'music/partials/home_smart_suggest.html' %}
+
+    {% include 'music/partials/home_trending_artist.html' %}
+
+    <!-- Sekcja Najnowsze wydania -->
+    <section>
+        <div class="flex justify-between items-end mb-8">
+            <h2 class="text-3xl font-black text-text-main">Najnowsze wydania</h2>
+            <a href="{% url 'music:album_list' %}" class="text-primary font-bold hover:underline">Zobacz wszystkie</a>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            {% for album in latest_albums %}
+                {% include 'music/partials/album_card.html' with minimal=True %}
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Sekcja Top Artyści -->
+    {% if top_artists %}
+    <section>
+        <h2 class="text-3xl font-black text-text-main tracking-tight mb-8">Top Artyści tygodnia</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            {% for artist in top_artists %}
+            <a href="{% url 'music:artist_detail' artist.slug %}" class="bg-background-card p-6 rounded-[2.5rem] border border-border-main hover:bg-background-element transition-all group text-center shadow-sm hover:shadow-md">
+                <div class="relative aspect-square rounded-full overflow-hidden mb-4 shadow-xl border-2 border-transparent group-hover:border-primary transition-all">
+                    <img src="{% if artist.photo %}{{ artist.photo|thumbnail:'200x200' }}{% else %}{% static 'images/default_artist.png' %}{% endif %}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="{{ artist.nickname }}">
+                </div>
+                <div class="text-base font-bold text-text-main truncate group-hover:text-primary transition-colors">{{ artist.nickname }}</div>
+                <div class="text-xs text-text-muted uppercase tracking-widest">{{ artist.genre.name }}</div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Sekcja Top Lista -->
+    <section>
+        <div class="flex items-center justify-between mb-8">
+            <div><h2 class="text-3xl font-black text-text-main">Top tygodnia</h2><p class="text-text-secondary text-sm mt-1">Odkryj hity BeatHub</p></div>
+            <a href="{% url 'music:song_list' %}?sort=-play_count&time_range=week" 
+               class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary hover:text-background-main transition-all group"
+               title="Zobacz pełny ranking tygodnia">
+                <svg class="w-6 h-6 text-primary group-hover:text-background-main transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </a>
+        </div>
+
+        <div class="bg-background-card rounded-3xl border border-border-main overflow-visible backdrop-blur-sm shadow-sm">
+            <table class="w-full text-left border-separate border-spacing-0">
+                <thead>
+                    <tr class="uppercase text-[10px] font-bold tracking-widest text-text-muted">
+                        <th class="bg-background-element/50 py-4 px-6 text-text-muted w-20 text-center border-b border-border-main rounded-tl-3xl">#</th>
+                        <th class="bg-background-element/50 py-4 px-6 text-text-muted border-b border-border-main">Tytuł</th>
+                        <th class="bg-background-element/50 py-4 px-6 text-text-muted border-b border-border-main hidden lg:table-cell">Gatunek</th>
+                        <th class="bg-background-element/50 py-4 px-4 w-12 border-b border-border-main rounded-tr-3xl"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for song in top_songs %}
+                        {% include 'music/partials/song_row.html' with song=song row_context='home' context_type='queue' context_id='' %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {% if community_playlists %}
+    <section>
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h2 class="text-3xl font-black text-text-main">Playlisty społeczności</h2>
+                <p class="text-text-secondary text-sm mt-1">Najchętniej słuchane zestawienia</p>
+            </div>
+            <a href="{% url 'music:community_playlists' %}" class="text-primary font-bold hover:underline text-sm">Przeglądaj wszystkie</a>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            {% for playlist in community_playlists %}
+                {% include 'music/playlist_card.html' with show_options=False %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% include 'music/partials/home_genres.html' %}
+
+</div>
+
+<!-- Dane dla odtwarzacza -->
+{{ top_songs_json|json_script:"top-songs-data" }}
+{{ trending_artist_songs_json|json_script:"trending-artist-songs-data" }}
+
+{% endblock %} 
+
+{% block scripts %}
+<script src="{% static 'music/js/home.js' %}"></script>
+<script>
+    // Inicjalizacja danych kolejek z JSON Script
+    window.pageQueue = JSON.parse(document.getElementById('top-songs-data').textContent);
+    window.trendingArtistQueue = JSON.parse(document.getElementById('trending-artist-songs-data').textContent);
+</script>
+{% endblock %}

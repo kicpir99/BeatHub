@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Edytuj Playlistę - {{ playlist.name }} - BeatHub{% endblock %}
+
+{% block content %}
+<!-- SortableJS dla Drag & Drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<div class="max-w-4xl mx-auto py-12 px-6">
+    <div class="mb-12">
+        <nav class="flex mb-4 text-sm text-text-muted">
+            <a href="{% url 'music:playlist_list' %}" class="hover:text-text-main transition-colors">Playlisty</a>
+            <span class="mx-2">/</span>
+            <a href="{% url 'music:playlist_detail' playlist.id %}" class="hover:text-text-main transition-colors">{{ playlist.name }}</a>
+            <span class="mx-2">/</span>
+            <span class="text-primary font-bold">Edycja zaawansowana</span>
+        </nav>
+        <h1 class="text-5xl font-black text-text-main tracking-tight">Edytuj <span class="text-primary">Playlistę</span></h1>
+        <p class="text-gray-400 mt-2">Widok klasyczny z obsługą Drag & Drop i Formsetów Django.</p>
+    </div>
+
+    <form method="post" class="space-y-12" id="playlist-edit-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="bg-red-500/10 border border-red-500/50 p-4 rounded-2xl text-red-500 text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div>
+                        {% for error in form.non_field_errors %}
+                            <p class="font-bold">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Sekcja Metadanych -->
+        <div class="bg-gray-800/40 backdrop-blur-xl border border-white/5 rounded-[2rem] p-8 shadow-2xl">
+            <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                Informacje podstawowe
+            </h2>
+            <div class="space-y-6">
+                <div>
+                    {{ form.name.label_tag }}
+                    <div class="mt-2">{{ form.name }}</div>
+                    {% if form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    {{ form.description.label_tag }}
+                    <div class="mt-2">{{ form.description }}</div>
+                    {% if form.description.errors %}<p class="text-red-500 text-xs mt-1">{{ form.description.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="flex items-center gap-3 bg-black/20 p-4 rounded-xl border border-white/5">
+                    {{ form.is_public }}
+                    <label for="{{ form.is_public.id_for_label }}" class="text-sm font-medium text-gray-300">{{ form.is_public.label }}</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sekcja Utworów (Formset) -->
+        <div class="bg-gray-800/40 backdrop-blur-xl border border-white/5 rounded-[2rem] p-8 shadow-2xl">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-xl font-bold text-text-main flex items-center gap-3">
+                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                    Zarządzaj utworami
+                </h2>
+                <button type="button" id="add-song-btn" class="flex items-center gap-2 bg-white/5 hover:bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Dodaj piosenkę
+                </button>
+            </div>
+            
+            <p class="text-gray-500 text-[10px] mb-6 italic uppercase tracking-widest flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0V12m-3 .5a1.5 1.5 0 003 0M10 12V3.5a1.5 1.5 0 113 0V12m-3 0a1.5 1.5 0 003 0M13 12V4.5a1.5 1.5 0 113 0V12m-3 0a1.5 1.5 0 003 0M16 12v1.5a2.5 2.5 0 01-5 0v-7.5"></path></svg>
+                Przeciągnij wiersze, aby zmienić kolejność utworów.
+            </p>
+
+            {{ songs_formset.management_form }}
+            <div class="space-y-3" id="formset-container">
+                <div class="grid grid-cols-[40px_1fr_60px] gap-4 px-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    <div class="text-center"></div>
+                    <div>Utwór</div>
+                    <div class="text-center">Usuń</div>
+                </div>
+
+                {% for s_form in songs_formset %}
+                    <div class="formset-row grid grid-cols-[40px_1fr_60px] gap-4 items-center p-3 bg-black/20 border border-white/5 rounded-2xl transition-all hover:bg-black/40 group cursor-grab active:cursor-grabbing">
+                        {{ s_form.id }}
+                        <div class="hidden">{{ s_form.order }}</div>
+                        
+                        <div class="drag-handle text-text-muted group-hover:text-primary transition-colors flex justify-center py-2">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                        </div>
+
+                        <div class="flex-1">{{ s_form.song }}</div>
+                        
+                        <div class="flex justify-center">
+                            {{ s_form.DELETE }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Template dla nowych wierszy (ukryty) -->
+            <div id="empty-form-template" class="hidden">
+                <div class="formset-row grid grid-cols-[40px_1fr_60px] gap-4 items-center p-3 bg-primary/5 border border-primary/20 rounded-2xl transition-all animate-in fade-in slide-in-from-top-2 duration-300 group cursor-grab active:cursor-grabbing">
+                    {{ songs_formset.empty_form.id }}
+                    <div class="hidden">{{ songs_formset.empty_form.order }}</div>
+                    
+                    <div class="drag-handle text-primary/50 flex justify-center py-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    </div>
+
+                    <div>{{ songs_formset.empty_form.song }}</div>
+                    
+                    <div class="flex justify-center">
+                        {{ songs_formset.empty_form.DELETE }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Akcje -->
+        <div class="flex items-center justify-between pt-6 border-t border-white/10">
+            <a href="{% url 'music:playlist_detail' playlist.id %}" class="text-gray-500 hover:text-white font-bold transition-colors">
+                Anuluj i wróć
+            </a>
+            <div class="flex gap-4">
+                <button type="submit" class="bg-primary hover:bg-primary-hover text-background-main font-black px-10 py-4 rounded-full shadow-2xl shadow-primary-glow/40 transition-all active:scale-95 uppercase tracking-widest text-sm">
+                    Zapisz zmiany
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Funkcja aktualizująca pola order po przeciągnięciu
+    function updateOrders() {
+        const rows = document.querySelectorAll('#formset-container .formset-row');
+        rows.forEach((row, index) => {
+            const orderInput = row.querySelector('input[name$="-order"]');
+            if (orderInput) {
+                orderInput.value = index + 1;
+            }
+        });
+    }
+
+    // Inicjalizacja Sortable
+    const container = document.getElementById('formset-container');
+    new Sortable(container, {
+        animation: 150,
+        handle: '.drag-handle',
+        draggable: '.formset-row', // Tylko wiersze z tą klasą są przesuwalne
+        ghostClass: 'bg-primary/10',
+        onEnd: function() {
+            updateOrders();
+        }
+    });
+
+    // Obsługa dodawania piosenki
+    document.getElementById('add-song-btn').addEventListener('click', function() {
+        const totalForms = document.getElementById('id_playlistposition_set-TOTAL_FORMS');
+        const currentCount = parseInt(totalForms.value);
+        
+        const template = document.getElementById('empty-form-template').innerHTML;
+        const newRowHtml = template.replace(/__prefix__/g, currentCount);
+        
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = newRowHtml;
+        const newRow = wrapper.firstElementChild;
+        
+        container.appendChild(newRow);
+        totalForms.value = currentCount + 1;
+        updateOrders();
+    });
+</script>
+
+<style>
+    label {
+        font-size: 0.75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+    }
+    .cursor-grab { cursor: grab; }
+    .cursor-grabbing { cursor: grabbing; }
+</style>
+{% endblock %}

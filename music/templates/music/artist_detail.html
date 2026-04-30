@@ -1,0 +1,462 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load image_tags %}
+
+{% block title %}{{ artist.nickname }} - BeatHub{% endblock %}
+
+{% block content %}
+<style>
+    /* Styl Premium dla list utworów */
+    .song-row {
+        transition: all 0.2s ease;
+    }
+    .song-row:hover td {
+        background-color: var(--background-element);
+    }
+    .song-row:hover td:first-child {
+        border-top-left-radius: 1rem;
+        border-bottom-left-radius: 1rem;
+    }
+    .song-row:hover td:last-child {
+        border-top-right-radius: 1rem;
+        border-bottom-right-radius: 1rem;
+    }
+
+    /* Pasek boczny na pierwszej komórce */
+    .song-row td:first-child { position: relative; }
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+
+    .song-row:first-child td:first-child::before { border-top-left-radius: 1.5rem; }
+    .song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
+
+
+    /* Logika wyświetlania ikon i equalizera */
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { 
+        display: none; 
+    }
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+    .song-row:hover .equalyzer { display: none !important; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+
+    /* ANIMACJA FAL (Equalizer) */
+    .equalyzer {
+        align-items: flex-end;
+        justify-content: center;
+        gap: 2px;
+        width: 16px;
+        height: 16px;
+    }
+    .equalyzer-bar {
+        width: 3px;
+        background-color: var(--primary);
+        border-radius: 1px;
+        animation: up-and-down 0.5s infinite ease-in-out;
+    }
+    .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+    .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+    .equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+
+    @keyframes up-and-down {
+        0%, 100% { height: 4px; }
+        50% { height: 14px; }
+    }
+
+    .song-row td { border-bottom: 1px solid var(--border-main); opacity: 0.8; }
+    .song-row:last-child td { border-bottom: 0; }
+
+    thead th { border-bottom: 1px solid var(--border-main); }
+</style>
+
+<div class="space-y-12 pb-20">
+
+    <!-- NAWIGACJA -->
+    <div>
+        <a href="{% url 'music:home' %}" class="w-fit text-text-secondary hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-element hover:bg-primary/20 transition-colors border border-border-main shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do strony głównej
+        </a>
+    </div>
+
+    <!-- HERO BANNER -->
+    <section class="relative overflow-hidden rounded-[2.5rem] border border-border-main bg-gradient-to-br from-background-card to-background-main backdrop-blur-xl shadow-xl">
+        <!-- Rozmyte tło z okładki -->
+        {% if artist.photo %}
+        <div class="absolute inset-0 opacity-10">
+            <img src="{{ artist.photo|thumbnail:'100x100' }}" class="w-full h-full object-cover blur-3xl scale-110">
+        </div>
+        {% endif %}
+        <div class="absolute inset-0 bg-gradient-to-r from-background-main/90 via-background-main/40 to-transparent"></div>
+
+        <div class="relative flex flex-col md:flex-row items-center gap-8 md:gap-12 p-8 md:p-12 lg:p-16">
+            <!-- Zdjęcie artysty -->
+            <div class="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 shrink-0 rounded-full overflow-hidden shadow-2xl border-4 border-border-main ring-4 ring-white/5">
+                {% if artist.photo %}
+                    <img src="{{ artist.photo|thumbnail:'400x400' }}" alt="{{ artist.nickname }}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105">
+                {% else %}
+                    <div class="w-full h-full bg-gradient-to-br from-primary/20 to-background-element flex items-center justify-center">
+                        <svg class="w-20 h-20 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 text-center md:text-left z-10">
+                <span class="text-primary font-bold text-xs uppercase tracking-[0.3em] mb-3 block">Artysta</span>
+                <h1 class="text-5xl md:text-6xl lg:text-7xl font-black text-text-main tracking-tighter mb-4 drop-shadow-sm">{{ artist.nickname }}</h1>
+                
+                {% if artist.genre %}
+                <a href="{% url 'music:album_list' %}?genre={{ artist.genre.id }}" 
+                   class="inline-block px-4 py-1.5 bg-background-element text-primary text-sm font-bold rounded-full border border-border-main hover:bg-primary hover:text-background-main transition-all mb-6 shadow-sm">
+                    {{ artist.genre.name }}
+                </a>
+                {% endif %}
+
+                <!-- Statystyki -->
+                <div class="flex flex-wrap justify-center md:justify-start gap-6 md:gap-10 mb-8">
+                    <div class="text-center md:text-left">
+                        <div class="text-2xl md:text-3xl font-black text-text-main">{{ total_plays|default:"0" }}</div>
+                        <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Odtworzeń</div>
+                    </div>
+                    <div class="text-center md:text-left">
+                        <div id="artist-followers-count" class="text-2xl md:text-3xl font-black text-text-main">{{ artist.followers.count }}</div>
+                        <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Fanów</div>
+                    </div>
+                    <div class="text-center md:text-left">
+                        <div class="text-2xl md:text-3xl font-black text-text-main">{{ total_albums }}</div>
+                        <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Albumów</div>
+                    </div>
+                    <div class="text-center md:text-left">
+                        <div class="text-2xl md:text-3xl font-black text-text-main">{{ total_songs }}</div>
+                        <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Utworów</div>
+                    </div>
+                </div>
+
+                <!-- Przyciski -->
+                <div class="flex flex-wrap justify-center md:justify-start gap-4">
+                    <button onclick="window.playGlobalQueue(window.pageQueue, 0, {type:'artist', id:{{artist.id}}})" 
+                            class="flex items-center gap-3 bg-primary hover:bg-primary-hover text-background-main px-8 py-3.5 rounded-full font-bold text-lg transition-all shadow-lg shadow-primary/20 active:scale-95">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                        Odtwarzaj wszystko
+                    </button>
+
+                    <button id="follow-artist-btn" 
+                            onclick="window.toggleArtistFollow({{ artist.id }})"
+                            data-text-follow="{{ g.obserwuj|capfirst }}"
+                            data-text-following="{{ g.obserwujesz|capfirst }}"
+                            class="flex items-center gap-3 px-8 py-3.5 rounded-full font-bold text-lg transition-all shadow-lg active:scale-95 {% if is_following %}bg-background-element text-text-main border border-border-main hover:bg-background-card{% else %}bg-text-main text-background-main hover:opacity-90{% endif %}">
+                        <svg id="follow-icon" class="w-6 h-6" fill="{% if is_following %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span id="follow-text">{% if is_following %}{{ g.obserwujesz|capfirst }}{% else %}{{ g.obserwuj|capfirst }}{% endif %}</span>
+                    </button>
+
+                    <button onclick="window.handleShare(event, '{{ artist.nickname|escapejs }}', '{% url 'music:artist_detail' artist.slug %}')" 
+                            class="flex items-center gap-3 px-6 py-3 rounded-full border border-border-main hover:border-blue-500/50 hover:bg-background-element text-text-secondary hover:text-text-main font-bold transition-all active:scale-95 group/share bg-background-card/50 shadow-sm">
+                        <svg class="w-5 h-5 group-hover/share:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        Udostępnij
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TOP UTWORY -->
+    {% if top_songs %}
+    <section>
+        <div class="flex items-center gap-4 mb-6">
+            <div class="p-3 rounded-2xl bg-background-element border border-border-main shadow-sm">
+                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-2xl font-black text-text-main">Popularne utwory</h2>
+                <p class="text-text-muted text-sm uppercase tracking-widest font-bold">Najchętniej słuchane</p>
+            </div>
+        </div>
+
+        <div class="bg-background-card rounded-3xl border border-border-main overflow-visible backdrop-blur-sm shadow-xl">
+            <table class="w-full text-left border-separate border-spacing-0">
+                <thead>
+                    <tr class="uppercase text-[10px] font-bold tracking-widest text-text-muted">
+                        <th class="bg-background-element/50 py-4 px-6 w-20 text-center border-b border-border-main rounded-tl-3xl">#</th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main">Tytuł</th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main hidden md:table-cell">Album</th>
+                        <th class="bg-background-element/50 py-4 px-6 text-right border-b border-border-main hidden sm:table-cell">Odtworzenia</th>
+                        <th class="bg-background-element/50 py-4 px-6 text-right border-b border-border-main">Czas</th>
+                        <th class="bg-background-element/50 py-4 px-4 w-12 border-b border-border-main rounded-tr-3xl"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for song in top_songs %}
+                        {% include 'music/partials/song_row.html' with song=song row_context='artist_top' context_type='artist' context_id=artist.id %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- DYSKOGRAFIA -->
+    {% if albums %}
+    <section>
+        <div class="flex items-end justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <div class="p-3 rounded-2xl bg-background-element border border-border-main shadow-sm">
+                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-black text-text-main">Dyskografia</h2>
+                    <p class="text-text-muted text-sm uppercase tracking-widest font-bold">{{ total_albums }} album{{ total_albums|pluralize:"y,ów" }}</p>
+                </div>
+            </div>
+            <a href="{% url 'music:album_list' %}?artist_id={{ artist.id }}" class="text-primary font-bold hover:text-primary-hover hover:underline text-sm mb-1 transition-colors">Pokaż wszystko</a>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {% for album in albums|slice:":5" %}
+                {% include 'music/partials/album_card.html' with album=album %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- POJAWIAJĄ SIĘ NA -->
+    {% if appears_on %}
+    <section>
+        <div class="flex items-end justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <div class="p-3 rounded-2xl bg-background-element border border-border-main shadow-sm">
+                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-black text-text-main">Pojawiają się na</h2>
+                    <p class="text-text-muted text-sm uppercase tracking-widest font-bold">Udziały gościnne</p>
+                </div>
+            </div>
+            {% if appears_on.count > 5 %}
+                <a href="{% url 'music:album_list' %}?featured_artist_id={{ artist.id }}" class="text-primary font-bold hover:text-primary-hover hover:underline text-sm mb-1 transition-colors">Pokaż wszystko</a>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {% for album in appears_on|slice:":5" %}
+                {% include 'music/partials/album_card.html' with album=album %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- WSZYSTKIE UTWORY -->
+    {% if all_songs %}
+    <section id="all-songs-section">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="p-3 rounded-2xl bg-background-element border border-border-main shadow-sm">
+                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-2xl font-black text-text-main">Wszystkie utwory</h2>
+                <p class="text-text-muted text-sm uppercase tracking-widest font-bold">{{ total_songs }} piosenek, posortowane wg popularności</p>
+            </div>
+        </div>
+
+        <div class="bg-background-card rounded-3xl border border-border-main overflow-visible backdrop-blur-sm shadow-xl">
+            <table class="w-full text-left border-separate border-spacing-0">
+                <thead>
+                    <tr class="uppercase text-[10px] tracking-wider text-text-muted font-bold">
+                        <th class="bg-background-element/50 py-4 px-6 w-20 text-center border-b border-border-main rounded-tl-3xl cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('id')">
+                            <div class="flex items-center justify-center gap-2">
+                                #
+                                <span class="sort-icon">
+                                    {% if current_sort == 'id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('title')">
+                            <div class="flex items-center gap-2">
+                                Tytuł
+                                <span class="sort-icon">
+                                    {% if current_sort == 'title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 border-b border-border-main hidden md:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('album__title')">
+                            <div class="flex items-center gap-2">
+                                Album
+                                <span class="sort-icon">
+                                    {% if current_sort == 'album__title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-album__title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 text-right border-b border-border-main hidden sm:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('play_count')">
+                            <div class="flex items-center justify-end gap-2">
+                                <span class="sort-icon">
+                                    {% if current_sort == 'play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                </span>
+                                Odtworzenia
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-6 text-right border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('duration_sec')">
+                            <div class="flex items-center justify-end gap-2">
+                                <span class="sort-icon">
+                                    {% if current_sort == 'duration_sec' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                    {% elif current_sort == '-duration_sec' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                    {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>{% endif %}
+                                </span>
+                                Czas
+                            </div>
+                        </th>
+                        <th class="bg-background-element/50 py-4 px-4 w-12 border-b border-border-main rounded-tr-3xl"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for song in all_songs %}
+                        {% include 'music/partials/song_row.html' with song=song row_context='artist' index=forloop.counter0|add:page_obj.start_index|add:"-1" context_type='artist' context_id=artist.id %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGINACJA -->
+        {% if is_paginated %}
+        <div class="mt-8 flex justify-center items-center gap-4">
+            <div class="inline-flex items-center gap-4 bg-background-card/50 p-2 rounded-xl border border-border-main shadow-lg backdrop-blur-sm">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}#all-songs-section" class="px-5 py-2.5 bg-background-element text-text-secondary rounded-lg hover:bg-primary hover:text-background-main transition-all font-medium border border-border-main shadow-sm">&larr;</a>
+                {% endif %}
+                
+                <div class="flex items-center gap-3 px-4 py-2 bg-background-main/50 rounded-lg border border-border-main shadow-inner">
+                    <span class="text-xs font-bold text-text-muted uppercase tracking-widest">Strona</span>
+                    <input type="number" 
+                           value="{{ page_obj.number }}" 
+                           min="1" 
+                           max="{{ page_obj.paginator.num_pages }}"
+                           onkeydown="if(event.key==='Enter') window.goToPage(this, 'page')"
+                           onblur="window.goToPage(this, 'page')"
+                           class="bg-transparent text-text-main font-black text-base outline-none w-12 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none border-b border-transparent focus:border-primary transition-colors">
+                    <span class="text-xs font-bold text-text-muted uppercase tracking-widest">z {{ page_obj.paginator.num_pages }}</span>
+                </div>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}#all-songs-section" class="px-5 py-2.5 bg-background-element text-text-secondary rounded-lg hover:bg-primary hover:text-background-main transition-all font-medium border border-border-main shadow-sm">&rarr;</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- PLAYLISTY Z UTWORAMI ARTYSTY -->
+    {% if related_playlists %}
+    <section>
+        <div class="flex items-end justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <div class="p-3 rounded-2xl bg-background-element border border-border-main shadow-sm">
+                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-black text-text-main">Playlisty z {{ artist.nickname }}</h2>
+                    <p class="text-text-muted text-sm uppercase tracking-widest font-bold">Playlisty społeczności</p>
+                </div>
+            </div>
+            <a href="{% url 'music:community_playlists' %}?q={{ artist.nickname|urlencode }}" class="text-primary font-bold hover:text-primary-hover hover:underline text-sm mb-1 transition-colors">Pokaż wszystko</a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            {% for playlist in related_playlists|slice:":5" %}
+                {% include 'music/playlist_card.html' with show_options=False %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+</div>
+
+<!-- KOLEJKA PLAYERA -->
+<script id="page-queue-data" type="application/json">
+[{% for song in all_songs_full_list %}{ "id": "{{ song.id }}", "url": "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}", "title": "{{ song.title|escapejs }}", "artist": "{{ artist.nickname|escapejs }}", "cover": "{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}", "album_slug": "{{ song.album.slug }}" }{% if not forloop.last %},{% endif %}{% endfor %}]
+</script>
+<script id="top-songs-queue-data" type="application/json">
+[{% for song in top_songs %}{ "id": "{{ song.id }}", "url": "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}", "title": "{{ song.title|escapejs }}", "artist": "{{ artist.nickname|escapejs }}", "cover": "{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}", "album_slug": "{{ song.album.slug }}" }{% if not forloop.last %},{% endif %}{% endfor %}]
+</script>
+
+<script>
+    document.addEventListener('turbo:load', () => {
+        const d = document.getElementById('page-queue-data');
+        if (d) window.pageQueue = JSON.parse(d.textContent);
+
+        const td = document.getElementById('top-songs-queue-data');
+        if (td) window.artistTopQueue = JSON.parse(td.textContent);
+    });
+
+    window.toggleArtistFollow = function(artistId) {
+        if (!artistId) return;
+        
+        fetch('/ajax/toggle-artist-follow/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ artist_id: artistId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const btn = document.getElementById('follow-artist-btn');
+                const text = document.getElementById('follow-text');
+                const icon = document.getElementById('follow-icon');
+                const count = document.getElementById('artist-followers-count');
+                
+                if (data.action === 'followed') {
+                    btn.classList.remove('bg-text-main', 'text-background-main', 'hover:opacity-90');
+                    btn.classList.add('bg-background-element', 'text-text-main', 'border', 'border-border-main', 'hover:bg-background-card');
+                    text.textContent = btn.dataset.textFollowing;
+                    icon.setAttribute('fill', 'currentColor');
+                } else {
+                    btn.classList.remove('bg-background-element', 'text-text-main', 'border', 'border-border-main', 'hover:bg-background-card');
+                    btn.classList.add('bg-text-main', 'text-background-main', 'hover:opacity-90');
+                    text.textContent = btn.dataset.textFollow;
+                    icon.setAttribute('fill', 'none');
+                }
+                
+                if (count) {
+                    count.textContent = data.followers_count;
+                    // Animacja licznika
+                    count.classList.add('scale-125', 'text-primary');
+                    setTimeout(() => count.classList.remove('scale-125', 'text-primary'), 300);
+                }
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+</script>
+{% endblock %}

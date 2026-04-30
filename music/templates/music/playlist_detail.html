@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ playlist.name }} - BeatHub{% endblock %}
+
+{% block content %}
+<style>
+    /* Styl Premium dla list utworów */
+    .song-row { transition: all 0.2s ease; border-bottom: 1px solid var(--border-main); }
+    .song-row:hover td { background-color: var(--background-element); }
+    .song-row:hover td:first-child { border-top-left-radius: 1rem; border-bottom-left-radius: 1rem; }
+    .song-row:hover td:last-child { border-top-right-radius: 1rem; border-bottom-right-radius: 1rem; }
+
+    /* Zaokrąglanie rogów tabeli */
+    thead th:first-child { border-top-left-radius: 1.5rem; }
+    thead th:last-child { border-top-right-radius: 1.5rem; }
+    .song-row:last-child td:first-child { border-bottom-left-radius: 1.5rem; }
+    .song-row:last-child td:last-child { border-bottom-right-radius: 1.5rem; }
+
+    /* Pasek boczny aktywnego wiersza */
+    .song-row td:first-child { position: relative; }
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+    .song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
+
+    /* Logika ikon i equalizera */
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+    .song-row:hover .equalyzer { display: none !important; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+
+    /* Animacja fal equalizera */
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; }
+    .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
+    @keyframes up-and-down { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+    .song-row td { border-bottom: 1px solid var(--border-main); }
+    .song-row:last-child td { border-bottom: 0; }
+    thead th { border-bottom: 1px solid var(--border-main); }
+
+    /* Ukrycie scrollbara w opisie */
+    [id^="inline-description-"]::-webkit-scrollbar { width: 0px; }
+
+    /* SortableJS Styles */
+    .sortable-ghost { 
+        opacity: 0.2; 
+        background-color: var(--primary) !important; 
+    }
+    .sortable-chosen { 
+        background-color: var(--background-element); 
+        cursor: grabbing !important; 
+    }
+    .sortable-drag {
+        opacity: 0; /* Ukrywamy dodatkowy element SortableJS, aby nie dublował natywnego ducha */
+    }
+    .drag-handle { transition: color 0.2s; position: relative; z-index: 50; cursor: grab; }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-handle:hover { color: var(--primary); }
+    .drag-handle * { pointer-events: none; }
+</style>
+
+<div class="max-w-7xl mx-auto mt-12 px-6">
+    <div class="mb-8">
+        <a href="{% url 'music:playlist_list' %}" class="w-fit text-text-muted hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-card group-hover:bg-primary/20 transition-colors border border-border-main">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do wszystkich playlist
+        </a>
+    </div>
+
+    <div id="playlist-header-card" class="bg-background-card rounded-3xl p-8 md:p-12 border border-border-main shadow-2xl mb-12 flex flex-col md:flex-row gap-8 items-center relative overflow-hidden transition-all duration-1000">
+        
+        {% if playlist.owner == request.user %}
+        <div class="absolute top-6 right-6 flex gap-3 z-10">
+            <button onclick="window.openPlaylistModal(null, '{{ playlist.name|escapejs }}', '{{ playlist.id }}', {{ playlist.is_public|yesno:'true,false' }})" 
+                    class="bg-background-main/30 hover:bg-background-main/50 text-text-main p-3 rounded-full backdrop-blur-md transition-all border border-border-main shadow-xl hover:scale-110 active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+            </button>
+            <button onclick="window.handleDeletePlaylist(event, '{{ playlist.id }}')" 
+                    class="bg-red-600/20 hover:bg-red-600/40 text-red-500 p-3 rounded-full backdrop-blur-md transition-all border border-red-500/20 shadow-xl hover:scale-110 active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
+        </div>
+        {% endif %}
+
+        <div class="w-40 h-40 md:w-56 md:h-56 bg-background-main rounded-2xl flex-shrink-0 border-2 border-border-main shadow-2xl relative group cursor-pointer overflow-hidden" onclick="window.playGlobalQueue(window.pageQueue, 0, {type:'playlist', id:{{playlist.id}}})">
+            {% with covers=playlist.get_top_covers %}
+                {% if covers|length == 4 %}
+                    <div class="grid grid-cols-2 w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-700">
+                        {% for cover_url in covers %}<img src="{{ cover_url }}" class="w-full h-full object-cover border-[0.5px] border-black/20">{% endfor %}
+                    </div>
+                {% elif covers|length > 0 %}
+                    <img src="{{ covers.0 }}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-700">
+                {% else %}
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-background-element to-background-main">
+                        <svg class="w-20 h-20 text-primary/20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V9h2v7zm4 0h-2V7h2v9z"/></svg>
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <div class="absolute inset-0 bg-background-main/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="bg-primary text-background-main p-4 rounded-full shadow-xl transform scale-75 group-hover:scale-100 transition-transform">
+                    <svg class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 w-full">
+            <div class="flex items-center gap-3 mb-2">
+                {% if playlist.owner == request.user %}
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="detail-privacy-toggle" class="sr-only peer" {% if playlist.is_public %}checked{% endif %} onchange="window.togglePlaylistPrivacy('{{ playlist.id }}', this)">
+                    <div class="w-9 h-5 bg-background-element rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+                {% endif %}
+                <span id="detail-privacy-label" class="text-sm font-bold tracking-widest uppercase transition-colors {% if playlist.is_public %}text-primary{% else %}text-text-muted{% endif %}">
+                    {% if playlist.is_public %}Playlista publiczna{% else %}Playlista prywatna{% endif %}
+                </span>
+            </div>
+            
+            <h1 class="text-4xl md:text-7xl font-black text-text-main mb-2 break-words pt-2 leading-[1.1]">{{ playlist.name }}</h1>
+
+            {% if playlist.owner == request.user %}
+                <div class="relative group/desc max-w-3xl mb-8">
+                    <textarea id="inline-description-{{ playlist.id }}" 
+                              rows="1"
+                              maxlength="300"
+                              placeholder="Dodaj opis tej playlisty... (kliknij, aby edytować)"
+                              autocomplete="off"
+                              class="w-full bg-transparent text-text-secondary text-lg italic outline-none border-b border-transparent hover:bg-background-element focus:border-primary/50 focus:bg-background-element p-2 -ml-2 rounded-lg transition-all resize-none overflow-hidden"
+                              oninput="updateCharCounter(this, '{{ playlist.id }}')">{{ playlist.description }}</textarea>
+                    
+                    <div class="flex justify-between items-center mt-1">
+                        <span id="char-count-{{ playlist.id }}" class="text-[10px] font-bold text-text-muted uppercase tracking-widest px-2">
+                            {{ playlist.description|length }}/300
+                        </span>
+                        <button id="save-desc-btn-{{ playlist.id }}" 
+                                onclick="window.saveInlineDescription({{ playlist.id }})"
+                                class="hidden bg-primary hover:bg-primary-hover text-background-main text-[10px] font-black uppercase tracking-widest py-2 px-6 rounded-full transition-all shadow-lg active:scale-95">
+                            Zapisz zmiany
+                        </button>
+                    </div>
+                </div>
+            {% elif playlist.description %}
+                <p class="text-text-secondary text-lg mb-8 italic max-w-3xl">{{ playlist.description }}</p>
+            {% else %}
+                <div class="mb-8"></div>
+            {% endif %}
+
+            <div class="flex items-center gap-4 text-sm font-medium text-text-secondary mb-8">
+                <img src="{{ playlist.owner.profile.avatar_url }}" alt="Awatar" class="w-8 h-8 rounded-full border border-border-main object-cover">
+                <span class="text-text-main">{{ playlist.owner.username }}</span>
+                <span class="text-text-muted">•</span>
+                <span id="playlist-song-count">{% if query %}{{ page_obj.paginator.count }}{% else %}{{ playlist.followers_count }}{% endif %} utworów</span>
+                <span class="text-text-muted">•</span>
+                <span class="text-primary font-bold uppercase tracking-widest text-[10px]">
+                    <span id="playlist-followers-count">{{ playlist.followers_count|default:playlist.followed_by.count }}</span> obserwujących
+                </span>
+            </div>
+            
+            <div class="flex flex-col md:flex-row md:items-center flex-wrap gap-4">
+                <button onclick="window.playGlobalQueue(window.pageQueue, 0, {type:'playlist', id:{{playlist.id}}})" class="flex items-center gap-3 bg-primary hover:bg-primary-hover text-background-main px-8 py-3 rounded-full font-bold text-lg transition-all shadow-lg shadow-primary/20 transform hover:scale-105 active:scale-95 shrink-0">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg> Odtwarzaj wszystko
+                </button>
+
+                {% if playlist.owner != request.user %}
+                <button onclick="window.togglePlaylistFollow(event, {{ playlist.id }})" 
+                        id="follow-btn-{{ playlist.id }}"
+                        data-text-follow="{{ g.obserwuj|capfirst }} playlistę"
+                        data-text-unfollow="{{ g.przestan_obserwowac|capfirst }}"
+                        class="flex items-center gap-3 px-8 py-3 rounded-full border border-border-main {% if is_followed %}bg-primary/10 border-primary/50 text-primary{% else %}bg-background-element text-text-main hover:bg-background-card{% endif %} font-bold transition-all active:scale-95 group/follow shrink-0">
+                    <svg class="w-5 h-5 {% if is_followed %}fill-current{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                    </svg>
+                    <span class="follow-text">{% if is_followed %}{{ g.przestan_obserwowac|capfirst }}{% else %}{{ g.obserwuj|capfirst }} playlistę{% endif %}</span>
+                </button>
+                {% endif %}
+
+                <div class="flex items-center flex-wrap gap-4 w-full md:w-auto">
+                    <button id="selection-mode-btn" onclick="window.toggleSelectionMode()" class="flex items-center gap-3 px-6 py-3 rounded-full border border-border-main hover:border-primary/50 hover:bg-background-element text-text-secondary hover:text-text-main font-bold transition-all active:scale-95 group/sel shrink-0">
+                        <svg class="w-5 h-5 group-hover/sel:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        <span>Wybierz</span>
+                    </button>
+
+                    {% if playlist.owner == request.user %}
+                    <a href="{% url 'music:playlist_edit_classic' playlist.id %}" class="flex items-center gap-3 px-6 py-3 rounded-full border border-border-main hover:border-primary/50 hover:bg-background-element text-text-secondary hover:text-text-main font-bold transition-all active:scale-95 group/edit shrink-0">
+                        <svg class="w-5 h-5 group-hover/edit:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span>Edycja zaawansowana</span>
+                    </a>
+                    {% endif %}
+
+                    <button onclick="window.handleShare(event, '{{ playlist.name|escapejs }}', '{% url 'music:playlist_detail' playlist.id %}')" 
+                            class="flex items-center gap-3 px-6 py-3 rounded-full border border-border-main hover:border-primary/50 hover:bg-background-element text-text-secondary hover:text-text-main font-bold transition-all active:scale-95 group/share shrink-0">
+                        <svg class="w-5 h-5 group-hover/share:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        Udostępnij
+                    </button>
+
+                    <!-- SEARCH BAR -->
+                    <div class="relative flex-1 md:w-64 group">
+                        <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-text-muted group-focus-within:text-primary transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" 
+                               id="playlist-search" 
+                               placeholder="Szukaj w tej playliście..." 
+                               value="{{ query }}"
+                               onkeypress="if(event.key === 'Enter') window.filterPlaylist(this.value)"
+                               class="w-full bg-background-element border border-border-main rounded-full pl-10 pr-10 py-3 text-sm text-text-main focus:ring-2 focus:ring-primary/30 transition-all outline-none group-hover:border-primary/30 shadow-inner">
+                        {% if query %}
+                        <button onclick="window.filterPlaylist('')" class="absolute inset-y-0 right-4 flex items-center text-text-muted hover:text-text-main transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-background-card rounded-3xl border border-border-main overflow-visible shadow-xl mb-12 pb-2">
+        <table class="w-full text-left border-separate border-spacing-0">
+            <thead>
+                <tr class="uppercase text-[10px] font-bold tracking-widest text-text-muted">
+                    <th class="bg-background-element/50 py-4 px-6 text-text-muted w-20 text-center border-b border-border-main rounded-tl-3xl cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('order')">
+                        <div class="flex items-center justify-center gap-2">
+                            #
+                            <span class="sort-icon">
+                                {% if current_sort == 'order' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-order' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                        </div>
+                    </th>
+                    <th class="bg-background-element/50 py-4 px-6 text-text-muted border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('song__title')">
+                        <div class="flex items-center gap-2">
+                            Tytuł
+                            <span class="sort-icon">
+                                {% if current_sort == 'song__title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-song__title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                        </div>
+                    </th>
+                    <th class="bg-background-element/50 py-4 px-6 text-text-muted border-b border-border-main hidden md:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('song__album__title')">
+                        <div class="flex items-center gap-2">
+                            Album
+                            <span class="sort-icon">
+                                {% if current_sort == 'song__album__title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-song__album__title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                        </div>
+                    </th>
+                    <th class="bg-background-element/50 py-4 px-6 text-text-muted border-b border-border-main hidden lg:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('song__album__artist__genre__name')">
+                        <div class="flex items-center gap-2">
+                            Gatunek
+                            <span class="sort-icon">
+                                {% if current_sort == 'song__album__artist__genre__name' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-song__album__artist__genre__name' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                        </div>
+                    </th>
+                    <th class="bg-background-element/50 py-4 px-6 text-text-muted text-right w-24 border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('song__duration_sec')">
+                        <div class="flex items-center justify-end gap-2">
+                            <span class="sort-icon">
+                                {% if current_sort == 'song__duration_sec' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-song__duration_sec' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                            Czas
+                        </div>
+                    </th>
+                    <th class="bg-background-element/50 py-4 px-6 text-text-muted text-right border-b border-border-main hidden 2xl:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('added_at')">
+                        <div class="flex items-center justify-end gap-2">
+                            <span class="sort-icon">
+                                {% if current_sort == 'added_at' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                {% elif current_sort == '-added_at' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                            </span>
+                            Dodano
+                        </div>
+                    </th>
+                    <th class="bg-background-element/50 py-4 px-4 w-12 border-b border-border-main rounded-tr-3xl"></th>
+                </tr>
+            </thead>
+            <tbody id="playlist-songs-body" class="divide-y divide-border-main">
+                {% for pos in playlist_positions %}
+                    {% include 'music/partials/song_row.html' with song=pos.song pos=pos row_context='playlist' current_sort=current_sort context_type='playlist' context_id=playlist.id %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated or per_page == 'all' or page_obj.paginator.count > 5 %}
+    <div class="mt-16 flex flex-col items-center gap-6 mb-20">
+        {% if is_paginated %}
+        <div class="inline-flex items-center gap-4 bg-background-card p-2 rounded-xl border border-border-main shadow-lg backdrop-blur-sm">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&per_page={{ per_page }}" class="px-5 py-2.5 bg-background-element text-text-secondary rounded-lg hover:bg-primary hover:text-background-main transition-all font-medium border border-border-main shadow-sm">&larr;</a>
+            {% endif %}
+            
+            <div class="flex items-center gap-3 px-4 py-2 bg-background-main/50 rounded-lg border border-border-main shadow-inner">
+                <span class="text-xs font-bold text-text-muted uppercase tracking-widest">Strona</span>
+                <input type="number" 
+                       value="{{ page_obj.number }}" 
+                       min="1" 
+                       max="{{ page_obj.paginator.num_pages }}"
+                       onkeypress="if(event.key === 'Enter') window.goToPage(this, 'page')"
+                       onblur="window.goToPage(this, 'page')"
+                       class="bg-transparent text-text-main font-black text-base outline-none w-12 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none border-b border-transparent focus:border-primary transition-colors">
+                <span class="text-xs font-bold text-text-muted uppercase tracking-widest">z {{ page_obj.paginator.num_pages }}</span>
+            </div>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&per_page={{ per_page }}" class="px-5 py-2.5 bg-background-element text-text-secondary rounded-lg hover:bg-primary hover:text-background-main transition-all font-medium border border-border-main shadow-sm">&rarr;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="flex items-center gap-4 bg-background-card px-6 py-3 rounded-2xl border border-border-main shadow-xl">
+            <span class="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Pokaż na stronie</span>
+            <select onchange="window.visitPreservingScroll('?per_page='+this.value+'&page=1')" class="bg-background-element border border-border-main text-text-main text-sm font-bold rounded-xl focus:ring-primary outline-none px-4 py-2 cursor-pointer hover:border-text-muted transition-colors">
+                <option value="10" {% if per_page == '10' %}selected{% endif %}>10 utworów</option>
+                <option value="15" {% if per_page == '15' or not per_page %}selected{% endif %}>15 utworów</option>
+                <option value="30" {% if per_page == '30' %}selected{% endif %}>30 utworów</option>
+                <option value="50" {% if per_page == '50' %}selected{% endif %}>50 utworów</option>
+                <option value="100" {% if per_page == '100' %}selected{% endif %}>100 utworów</option>
+                <option value="all" {% if per_page == 'all' %}selected{% endif %}>Wszystkie (widok edycji)</option>
+            </select>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.pageQueue = [
+        {% for pos in playlist_positions %}
+        { id: "{{ pos.song.id }}", url: "{% if pos.song.audio_file %}{{ pos.song.audio_file.url }}{% endif %}", title: "{{ pos.song.title|escapejs }}", artist: "{{ pos.song.album.artist.nickname|escapejs }}", cover: "{% if pos.song.album.cover %}{{ pos.song.album.cover.url }}{% endif %}", playlist_id: "{{ playlist.id }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // Funkcja licznika i wysokości
+    function updateCharCounter(el, playlistId) {
+        el.style.height = ''; 
+        el.style.height = el.scrollHeight + 'px';
+        const counter = document.getElementById(`char-count-${playlistId}`);
+        const length = el.value.length;
+        counter.textContent = `${length}/300`;
+        if (length >= 280) counter.classList.replace('text-text-muted', 'text-yellow-500');
+        else if (counter.classList.contains('text-yellow-500')) counter.classList.replace('text-yellow-500', 'text-text-muted');
+        document.getElementById(`save-desc-btn-${playlistId}`).classList.remove('hidden');
+    }
+
+    document.addEventListener('turbo:load', () => {
+        const tx = document.getElementById(`inline-description-{{ playlist.id }}`);
+        if (tx) { tx.style.height = ''; tx.style.height = tx.scrollHeight + 'px'; }
+
+        // Inicjalizacja SortableJS dla zmiany kolejności utworów
+        const initSortable = () => {
+            setTimeout(() => {
+                const el = document.getElementById('playlist-songs-body');
+                if (!el || typeof Sortable === 'undefined') return;
+
+                const currentSort = "{{ current_sort }}".toLowerCase();
+                const isDefaultSort = currentSort === "order" || currentSort === "" || currentSort === "none";
+                const isOwner = "{{ is_owner|yesno:'true,false' }}" === "true";
+
+                console.log("[Sortable] Init - Sort:", currentSort, "isDefault:", isDefaultSort, "isOwner:", isOwner);
+
+                if (isDefaultSort && isOwner) {
+                    if (el.dataset.sortableActive) return; 
+                    el.dataset.sortableActive = "true";
+
+                    Sortable.create(el, {
+                        handle: '.drag-handle',
+                        draggable: '.song-row',
+                        animation: 250,
+                        ghostClass: 'sortable-ghost',
+                        chosenClass: 'sortable-chosen',
+                        dragClass: 'sortable-drag',
+                        onEnd: async function(evt) {
+                            if (evt.oldIndex === evt.newIndex) return;
+
+                            const rows = Array.from(el.querySelectorAll('tr[data-position-id]'));
+                            const positionIds = rows.map(r => r.dataset.positionId);
+                            const playlistId = "{{ playlist.id }}";
+                            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                            try {
+                                const response = await fetch("{% url 'music:reorder_playlist' %}", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+                                    body: JSON.stringify({ 
+                                        position_ids: positionIds,
+                                        playlist_id: playlistId
+                                    })
+                                });
+                                const data = await response.json();
+                                if (data.status === 'success') {
+                                    window.showDynamicToast(data.message, true);
+                                    console.log("[Sortable] Save success:", data.message);
+                                    // Aktualizacja widocznych numerów #
+                                    rows.forEach((row, i) => {
+                                        const numSpan = row.querySelector('.number-span');
+                                        if (numSpan) {
+                                            const startIdx = parseInt("{{ page_obj.start_index|default:1 }}");
+                                            numSpan.textContent = startIdx + i;
+                                        }
+                                    });
+                                } else {
+                                    window.showDynamicToast(data.message, false);
+                                }
+                            } catch (error) {
+                                console.error("[Sortable] Error:", error);
+                                window.showDynamicToast("Błąd połączenia.", false);
+                            }
+                        }
+                    });
+                }
+            }, 50);
+        };
+        initSortable();
+});
+
+    window.filterPlaylist = function(query) {
+        const url = new URL(window.location.href);
+        if (query) url.searchParams.set('q', query);
+        else url.searchParams.delete('q');
+        url.searchParams.delete('page');
+        window.visitPreservingScroll(url.toString());
+    };
+
+    window.saveInlineDescription = async function(playlistId) {
+        const desc = document.getElementById(`inline-description-${playlistId}`).value.trim();
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const btn = document.getElementById(`save-desc-btn-${playlistId}`);
+        try {
+            const response = await fetch(`/playlist/edit/${playlistId}/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+                body: JSON.stringify({ description: desc })
+            });
+            const data = await response.json();
+            if (data.status === 'success') { btn.classList.add('hidden'); window.showDynamicToast(data.message, true); } 
+            else { window.showDynamicToast(data.message, false); }
+        } catch (error) { window.showDynamicToast("Błąd połączenia.", false); }
+    };
+
+    window.handleRemoveFromPlaylist = async function(event, positionId, songId) {
+        event.stopPropagation();
+        if (!confirm("Usuń ten utwór?")) return;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        try {
+            const response = await fetch("{% url 'music:remove_from_playlist' %}", {
+                method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+                body: JSON.stringify({ position_id: positionId })
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                const row = document.getElementById(`song-row-${songId}`);
+                if (row) { row.style.transition = 'all 0.4s ease'; row.style.opacity = '0'; row.style.transform = 'translateX(20px)'; setTimeout(() => row.remove(), 400); }
+                const countSpan = document.getElementById('playlist-song-count');
+                if (countSpan) { countSpan.innerText = `${parseInt(countSpan.innerText) - 1} utworów`; }
+                window.showDynamicToast(data.message, true);
+            } else { window.showDynamicToast(data.message, false); }
+        } catch (error) { window.showDynamicToast("Błąd.", false); }
+    };
+
+    (function() {
+        const img = document.querySelector('#playlist-header-card img');
+        const card = document.getElementById('playlist-header-card');
+        
+        if (img && card) {
+            const extractColor = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 1;
+                canvas.height = 1;
+                
+                try {
+                    // Dla playlist bierzemy kolor z pierwszego widocznego obrazka
+                    ctx.drawImage(img, 0, 0, 1, 1);
+                    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+                    
+                    // Sprawdzamy czy kolor nie jest zbyt ciemny (pobieramy kolor akcentowy)
+                    const color = `rgba(${r}, ${g}, ${b}, 0.2)`;
+                    const colorSolid = `rgba(${r}, ${g}, ${b}, 0.5)`;
+                    
+                    const isLight = document.documentElement.classList.contains('light');
+                    const bgBase = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(17, 24, 39, 0.8)';
+                    const borderAlpha = isLight ? '0.2' : '0.3';
+                    
+                    card.style.background = `linear-gradient(135deg, ${color} 0%, ${bgBase} 100%)`;
+                    card.style.borderColor = `rgba(${r}, ${g}, ${b}, ${borderAlpha})`;
+                    card.style.boxShadow = `0 25px 50px -12px rgba(0, 0, 0, 0.1), 0 0 40px -10px ${colorSolid}`;
+                } catch (e) {
+                    console.error("Błąd wyciągania koloru:", e);
+                }
+            };
+
+            if (img.complete) {
+                extractColor();
+            } else {
+                img.addEventListener('load', extractColor);
+            }
+        }
+    })();
+</script>
+{% endblock %}

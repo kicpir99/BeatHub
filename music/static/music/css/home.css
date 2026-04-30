@@ -1,0 +1,95 @@
+/* Styl Premium dla list utworów */
+.song-row {
+    transition: all 0.2s ease;
+}
+.song-row:hover td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+.song-row:hover td:first-child {
+    border-top-left-radius: 1rem;
+    border-bottom-left-radius: 1rem;
+}
+.song-row:hover td:last-child {
+    border-top-right-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+}
+
+/* Pasek boczny na pierwszej komórce */
+.song-row td:first-child { position: relative; }
+.song-row td:first-child::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
+}
+.song-row:hover td:first-child::before,
+.song-row.is-current td:first-child::before { background-color: #10b981; }
+
+.song-row:first-child td:first-child::before { border-top-left-radius: 1.5rem; }
+.song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
+
+
+/* Logika wyświetlania ikon i equalizera */
+.song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { 
+    display: none; 
+}
+.song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+.song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: #10b981; opacity: 1; }
+.song-row:hover .equalyzer { display: none !important; }
+.song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: #10b981; }
+.song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+
+/* ANIMACJA FAL (Equalizer) */
+.equalyzer {
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+    width: 16px;
+    height: 16px;
+}
+.equalyzer-bar {
+    width: 3px;
+    background-color: #10b981;
+    border-radius: 1px;
+    animation: up-and-down 0.5s infinite ease-in-out;
+}
+.equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+.equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+.equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+
+@keyframes up-and-down {
+    0%, 100% { height: 4px; }
+    50% { height: 14px; }
+}
+
+.song-row td { border-bottom: 1px solid rgba(55, 65, 81, 0.3); }
+.song-row:last-child td { border-bottom: 0; }
+
+thead th { border-bottom: 1px solid rgba(55, 65, 81, 0.5); }
+
+/* Ukrywanie paska przewijania dla karuzeli ze strzałkami */
+.hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Idealne dopasowanie liczby kafelków na stronie karuzeli */
+@media (min-width: 1024px) {
+    .carousel-card {
+        /* 5 elementów (4 odstępy gap-6 czyli 4 * 24px = 96px, 96 / 5 = 19.2px) */
+        width: calc(20% - 19.2px); 
+    }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+    .carousel-card {
+        /* 3 elementy (2 odstępy = 48px, 48 / 3 = 16px) */
+        width: calc(33.333% - 16px); 
+    }
+}
+@media (max-width: 767px) {
+    .carousel-card {
+        /* 2 elementy na mobile */
+        width: calc(50% - 12px); 
+    }
+}

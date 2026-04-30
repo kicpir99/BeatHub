@@ -1,0 +1,20 @@
+<div>
+    <h2 class="text-3xl font-black text-white mb-8">{{ title|default:"Ostatnio Polubione Utwory" }}</h2>
+    {% if recent_liked_songs %}
+    <div class="bg-gray-800/30 rounded-3xl border border-gray-800/50 overflow-hidden backdrop-blur-sm">
+        <table class="w-full text-left border-separate border-spacing-0">
+            <tbody>
+                {% for song in recent_liked_songs %}
+                    {% include 'music/partials/song_row.html' with song=song row_context='profile' %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="bg-gray-800/30 rounded-3xl p-8 border border-gray-700/50 backdrop-blur-sm flex flex-col items-center justify-center text-center h-[calc(100%-4rem)] min-h-[200px]">
+        <svg class="w-12 h-12 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+        <h3 class="text-xl font-bold text-gray-400 mb-2">Brak polubionych utworów</h3>
+        <p class="text-gray-500 text-sm">{{ empty_message|default:"Nie polubiono jeszcze żadnych utworów." }}</p>
+    </div>
+    {% endif %}
+</div>

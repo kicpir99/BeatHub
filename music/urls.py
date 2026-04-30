@@ -1,0 +1,63 @@
+from django.urls import path
+from django.contrib.auth import views as auth_views
+from .views import (
+    AlbumListView, AlbumDetailView, ProfileUpdateView,
+    PlaylistListView, PlaylistDetailView, LikedSongsListView,
+    HomeView, CommunityPlaylistView, ArtistDetailView
+)
+from . import views
+
+app_name = 'music'
+
+urlpatterns = [
+    path('', views.HomeView.as_view(), name='home'),
+    path('albums/', views.AlbumListView.as_view(), name='album_list'),
+    path('songs/', views.SongListView.as_view(), name='song_list'),
+    path('artist/<slug:slug>/', ArtistDetailView.as_view(), name='artist_detail'),
+    path('album/<slug:slug>/', AlbumDetailView.as_view(), name='album_detail'),
+    path('ajax/add-to-playlist/', views.add_to_playlist_ajax, name='add_to_playlist'),
+    path('ajax/remove-from-playlist/', views.remove_from_playlist_ajax, name='remove_from_playlist'),
+    path('ajax/toggle-like/', views.toggle_like_ajax, name='toggle_like'),
+    path('ajax/toggle-album-like/', views.toggle_album_like_ajax, name='toggle_album_like'),
+    path('ajax/track-play/', views.track_play_ajax, name='track_play'),
+    path('api/my-playlists/', views.get_user_playlists_ajax, name='get_user_playlists'),
+    path('ajax/search-autocomplete/', views.search_autocomplete_ajax, name='search_autocomplete'),
+    path('ajax/bulk-like/', views.bulk_toggle_like_ajax, name='bulk_like'),
+    path('ajax/bulk-add-to-playlist/', views.bulk_add_to_playlist_ajax, name='bulk_add_to_playlist'),
+    path('ajax/bulk-remove-from-playlist/', views.bulk_remove_from_playlist_ajax, name='bulk_remove_from_playlist'),
+    path('playlists/', PlaylistListView.as_view(), name='playlist_list'),
+    path('playlists/<int:pk>/', PlaylistDetailView.as_view(), name='playlist_detail'),
+    path('playlist/edit/<int:playlist_id>/', views.edit_playlist_ajax, name='edit_playlist'),
+    path('playlist/edit-classic/<int:playlist_id>/', views.PlaylistEditView.as_view(), name='playlist_edit_classic'),
+    path('playlist/delete/<int:playlist_id>/', views.delete_playlist_ajax, name='delete_playlist'),
+    path('playlist/reorder/', views.reorder_playlist_ajax, name='reorder_playlist'),
+    path('playlist/copy-ajax/', views.copy_playlist_ajax, name='copy_playlist'),
+    path('liked-songs/', LikedSongsListView.as_view(), name='liked_songs'),
+    path('liked-songs/reorder/', views.reorder_liked_songs_ajax, name='reorder_liked_songs'),
+    path('liked-albums/reorder/', views.reorder_liked_albums_ajax, name='reorder_liked_albums'),
+    path('community-playlists/', views.CommunityPlaylistView.as_view(), name='community_playlists'),
+    path('ajax/toggle-playlist-follow/', views.toggle_playlist_follow_ajax, name='toggle_playlist_follow'),
+    path('update-followed-playlists-order/', views.update_followed_playlists_order, name='update_followed_playlists_order'),
+    path('save-playback-state/', views.save_playback_state, name='save_playback_state'),
+    path('followed-playlists/', views.FollowedPlaylistsListView.as_view(), name='followed_playlists'),
+    path('profile/toggle-privacy/', views.set_profile_visibility_ajax, name='toggle_profile_privacy'),
+    path('ajax/get-stats/', views.get_stats_ajax, name='get_stats'),
+    path('profile/', ProfileUpdateView.as_view(), name='profile'),
+    path('user/<str:username>/', views.UserProfileDetailView.as_view(), name='user_profile'),
+    path('user/<str:username>/stats/', views.DetailedStatsView.as_view(), name='detailed_stats'),
+    path('ajax/get-monthly-stats/<str:username>/<int:year>/', views.get_monthly_stats_ajax, name='get_monthly_stats'),
+    path('login/', views.CustomLoginView.as_view(), name='login'),
+    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
+    path('signup/', views.SignUpView.as_view(), name='signup'),
+    path('users/search/', views.UserSearchView.as_view(), name='user_search'),
+    path('users/following/', views.FollowingListView.as_view(), name='following_list'),
+    path('ajax/toggle-follow/', views.toggle_follow_ajax, name='toggle_follow'),
+    path('ajax/get-context-songs/', views.get_context_songs_ajax, name='get_context_songs'),
+    path('ajax/get-resume-section/', views.get_resume_section_ajax, name='get_resume_section'),
+    path('profile/toggle-stats-visibility/', views.ToggleStatsVisibilityView.as_view(), name='toggle_stats_visibility'),
+    path('discovery/', views.DiscoveryView.as_view(), name='discovery'),
+    path('ajax/discovery-songs/', views.get_discovery_songs_ajax, name='get_discovery_songs'),
+    path('ajax/discovery-action/', views.discovery_action_ajax, name='discovery_action'),
+    path('ajax/toggle-artist-follow/', views.toggle_artist_follow_ajax, name='toggle_artist_follow'),
+    path('access-denied/', views.AccessDeniedView.as_view(), name='access_denied'),
+]

@@ -1,0 +1,496 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* STYLIZACJA PREMIUM DLA LIST UTWORÓW */
+    .song-row { transition: all 0.2s ease; }
+    .song-row:hover td { background-color: var(--background-element); }
+
+    /* Zaokrąglanie rogów skrajnych komórek */
+    .song-row td:first-child { border-top-left-radius: 1rem; border-bottom-left-radius: 1rem; position: relative; }
+    .song-row td:last-child { border-top-right-radius: 1rem; border-bottom-right-radius: 1rem; }
+
+    /* Pasek boczny aktywnego wiersza */
+    .song-row td:first-child::before {
+        content: ''; position: absolute; left: 0; top: 10%; bottom: 10%; width: 4px;
+        background-color: transparent; transition: background-color 0.2s ease; z-index: 10; border-radius: 2px;
+    }
+    .song-row:hover td:first-child::before,
+    .song-row.is-current td:first-child::before { background-color: var(--primary); }
+
+    /* Logika ikon Play/Pause/Equalizer */
+    .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
+    .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
+    
+    .song-row:hover .play-icon { display: block; opacity: 1; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row.is-playing:hover .play-icon { display: none; }
+    .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+
+    /* ANIMACJA EQUALIZERA */
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; margin: 0 auto; }
+    .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
+    .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
+    .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
+    .equalyzer-bar:nth-child(3) { animation-duration: 0.5s; }
+    @keyframes up-and-down { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+    select option { background-color: var(--background-card); color: var(--text-main); }
+</style>
+
+<div class="space-y-8 pb-10">
+    <div class="flex flex-col gap-4">
+        <a href="{% url 'music:home' %}" class="w-fit text-text-muted hover:text-primary transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest group">
+            <div class="p-2 rounded-full bg-background-element hover:bg-primary/20 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </div>
+            Wróć do strony głównej
+        </a>
+
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+                <h1 class="text-4xl md:text-6xl font-black text-text-main tracking-tighter">
+                    <span id="title-prefix">{% if query or selected_year or year_min or year_max or selected_artist %}Wyniki{% else %}Odkrywaj{% endif %}</span> 
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500">
+                        <span id="title-suffix">{% if selected_artist %}dla {{ selected_artist.nickname }}{% elif query or selected_year or year_min or year_max %}wyszukiwania{% else %}Albumy{% endif %}</span>
+                    </span>
+                </h1>
+                
+                <p id="search-status-text" class="text-text-muted mt-8 flex flex-wrap items-center gap-2 {% if not query and not selected_year and not year_min and not year_max %}hidden{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <span id="search-status-content">
+                        {% if query %}Szukasz: "{{ query }}" {% endif %}
+                        {% if selected_year %}(Rok: {{ selected_year }}) {% endif %}
+                        {% if year_min or year_max %}(Okres: {{ year_min|default:"..." }} - {{ year_max|default:"..." }}){% endif %}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="sticky top-4 z-40">
+        <div class="bg-background-card/80 backdrop-blur-xl p-4 rounded-2xl border border-border-main shadow-2xl">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="flex gap-2">
+                    <div class="flex-1 relative group">
+                        <select id="year-min-select" class="w-full px-4 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-text-muted/30 transition-colors">
+                            <option value="">Od (rok)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 relative group">
+                        <select id="year-max-select" class="w-full px-4 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-text-muted/30 transition-colors">
+                            <option value="">Do (rok)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="relative group">
+                    <select id="sort-selector" class="w-full px-6 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-text-muted/30 transition-colors">
+                        <option value="-release_date" {% if current_sort == '-release_date' %}selected{% endif %}>Najnowsze</option>
+                        <option value="release_date" {% if current_sort == 'release_date' %}selected{% endif %}>Najstarsze</option>
+                        <option value="-play_count" {% if current_sort == '-play_count' %}selected{% endif %}>Najpopularniejsze</option>
+                        <option value="-likes_count" {% if current_sort == '-likes_count' %}selected{% endif %}>Najbardziej lubiane</option>
+                        <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Tytuł (A-Z)</option>
+                        <option value="-title" {% if current_sort == '-title' %}selected{% endif %}>Tytuł (Z-A)</option>
+                    </select>
+                </div>
+
+                <div id="time-range-wrapper" class="{% if current_sort != '-play_count' %}hidden{% endif %} relative group">
+                    <select id="time-range-selector" class="w-full px-6 py-3.5 bg-background-element border border-border-main rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-none cursor-pointer hover:border-text-muted/30 transition-colors">
+                        <option value="all" {% if time_range == 'all' %}selected{% endif %}>Wszystko</option>
+                        <option value="month" {% if time_range == 'month' %}selected{% endif %}>Miesiąc</option>
+                        <option value="week" {% if time_range == 'week' %}selected{% endif %}>Tydzień</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="active-filters-container" class="hidden flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border-main">
+                <span class="text-xs font-bold text-text-muted uppercase tracking-widest mr-2">Aktywne:</span>
+                <div id="active-pills-list" class="flex flex-wrap gap-2"></div>
+                <button type="button" onclick="window.resetAllFilters()" class="ml-auto text-xs text-text-muted hover:text-red-400 transition-colors flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Wyczyść wszystko
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3" id="genre-pills-container">
+        <a href="javascript:void(0)" onclick="window.resetGenreFilters()" 
+           id="genre-pill-all"
+           class="px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all bg-primary text-background-main shadow-lg shadow-primary/20">
+            Wszystkie
+        </a>
+
+        {% for genre in genres %}
+        <a href="javascript:void(0)" onclick="window.toggleGenre('{{ genre.id }}')"
+           id="genre-pill-{{ genre.id }}"
+           class="genre-pill px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 bg-background-card text-text-muted border border-border-main hover:bg-background-element">
+            {% if genre.image %}<img src="{{ genre.image.url }}" class="w-3 h-3 rounded-full object-cover">{% endif %}
+            {{ genre.name }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <div id="album-list-results">
+        {% if matching_songs %}
+            <div class="mb-12">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2 text-text-main">
+                        <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                        Dopasowane utwory
+                    </h2>
+                    
+                    <button id="selection-mode-btn" onclick="window.toggleSelectionMode()" class="flex items-center gap-3 px-4 py-2 rounded-full border border-border-main hover:border-primary/50 hover:bg-background-element text-text-muted hover:text-text-main text-xs font-bold transition-all active:scale-95 group/sel shrink-0">
+                        <svg class="w-4 h-4 group-hover/sel:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        <span>Wybierz</span>
+                    </button>
+                </div>
+                <div class="bg-background-card rounded-2xl border border-border-main overflow-hidden backdrop-blur-sm shadow-xl">
+                    <table class="w-full text-left border-separate border-spacing-0">
+                        <thead>
+                            <tr class="uppercase text-[10px] font-bold tracking-widest text-text-muted">
+                                <th class="bg-background-main/50 py-4 px-6 w-20 text-center border-b border-border-main rounded-tl-2xl cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('id')">
+                                    <div class="flex items-center justify-center gap-2">
+                                        #
+                                        <span class="sort-icon">
+                                            {% if current_sort == 'id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                            {% elif current_sort == '-id' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                            {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th class="bg-background-main/50 py-4 px-6 border-b border-border-main cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('title')">
+                                    <div class="flex items-center gap-2">
+                                        Tytuł
+                                        <span class="sort-icon">
+                                            {% if current_sort == 'title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                            {% elif current_sort == '-title' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                            {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th class="bg-background-main/50 py-4 px-6 border-b border-border-main hidden md:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('album')">
+                                    <div class="flex items-center gap-2">
+                                        Album
+                                        <span class="sort-icon">
+                                            {% if current_sort == 'album' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                            {% elif current_sort == '-album' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                            {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th class="bg-background-main/50 py-4 px-6 border-b border-border-main hidden xl:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('year')">
+                                    <div class="flex items-center gap-2">
+                                        Rok
+                                        <span class="sort-icon">
+                                            {% if current_sort == 'year' or current_sort == 'release_date' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                            {% elif current_sort == '-year' or current_sort == '-release_date' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                            {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>{% endif %}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th class="bg-background-main/50 py-4 px-6 text-right border-b border-border-main hidden sm:table-cell cursor-pointer hover:text-text-main transition-colors group" onclick="window.toggleSort('play_count')">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <span class="sort-icon">
+                                            {% if current_sort == 'play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                                            {% elif current_sort == '-play_count' %}<svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                                            {% else %}<svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>{% endif %}
+                                        </span>
+                                        Odtworzenia
+                                    </div>
+                                </th>
+                                <th class="bg-background-main/50 py-4 px-4 w-12 border-b border-border-main rounded-tr-2xl"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for song in matching_songs %}
+                                {% include 'music/partials/song_row.html' with song=song row_context='search' %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if is_paginated_s %}
+                <div class="mt-6 flex flex-col items-center gap-4">
+                    <div class="inline-flex items-center gap-3 bg-background-card p-1.5 rounded-xl border border-border-main shadow-lg backdrop-blur-sm">
+                        {% if matching_songs.has_previous %}
+                            <a href="javascript:void(0)" onclick="window.fetchFilteredResults(null, {{ matching_songs.previous_page_number }})" class="px-4 py-2 bg-background-element text-text-main rounded-lg hover:bg-primary hover:text-background-main transition-all font-bold text-xs">&larr;</a>
+                        {% endif %}
+                        
+                        <div class="flex items-center gap-2 px-3 py-1.5 bg-background-main rounded-lg border border-border-main">
+                            <span class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Strona</span>
+                            <input type="number" 
+                                   value="{{ matching_songs.number }}" 
+                                   min="1" 
+                                   max="{{ matching_songs.paginator.num_pages }}"
+                                   onkeydown="if(event.key==='Enter') window.fetchFilteredResults(null, this.value)"
+                                   onblur="window.fetchFilteredResults(null, this.value)"
+                                   class="bg-transparent text-text-main font-black text-sm outline-none w-10 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none border-b border-transparent focus:border-primary transition-colors">
+                            <span class="text-[10px] font-bold text-text-muted uppercase tracking-widest">z {{ matching_songs.paginator.num_pages }}</span>
+                        </div>
+
+                        {% if matching_songs.has_next %}
+                            <a href="javascript:void(0)" onclick="window.fetchFilteredResults(null, {{ matching_songs.next_page_number }})" class="px-4 py-2 bg-background-element text-text-main rounded-lg hover:bg-primary hover:text-background-main transition-all font-bold text-xs">&rarr;</a>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-center gap-3 bg-background-card px-4 py-2 rounded-xl border border-border-main shadow-lg">
+                        <span class="text-[9px] font-black text-text-muted uppercase tracking-widest">Na stronie</span>
+                        <select onchange="window.perPageS = this.value; window.fetchFilteredResults(null, 1)" class="bg-background-element border border-border-main text-text-main text-[11px] font-bold rounded-lg focus:ring-primary outline-none px-3 py-1 cursor-pointer">
+                            <option value="10" {% if per_page_s == 10 %}selected{% endif %}>10</option>
+                            <option value="20" {% if per_page_s == 20 %}selected{% endif %}>20</option>
+                            <option value="50" {% if per_page_s == 50 %}selected{% endif %}>50</option>
+                        </select>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if albums %}
+            <h2 class="text-xl font-bold mb-6 text-text-main">{% if query or selected_year or year_min or year_max %}Pasujące albumy{% else %}Wszystkie Albumy{% endif %}</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                {% for album in albums %}
+                    {% include 'music/partials/album_card.html' with album=album %}
+                {% endfor %}
+            </div>
+        {% else %} 
+            <div class="flex flex-col items-center justify-center py-20 px-4 text-center bg-background-card/30 rounded-2xl border border-border-main border-dashed mb-10 shadow-inner">
+                <svg class="w-20 h-20 text-text-muted mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h2 class="text-2xl font-bold text-text-muted mb-2">Nic nie znaleźliśmy</h2>
+                <button onclick="window.resetAllFilters()" class="px-6 py-3 bg-primary hover:bg-primary/80 text-background-main font-bold rounded-xl transition-all shadow-lg shadow-primary/20">Zresetuj wszystko</button>
+            </div>
+        {% endif %}
+
+        <div class="mt-12 mb-10 flex flex-col items-center gap-6">
+            {% if is_paginated %}
+            <div class="inline-flex items-center gap-4 bg-background-card p-2 rounded-xl border border-border-main shadow-lg backdrop-blur-sm">
+                {% if page_obj.has_previous %}<a href="javascript:void(0)" onclick="window.fetchFilteredResults({{ page_obj.previous_page_number }})" class="px-5 py-2.5 bg-background-element text-text-main rounded-lg hover:bg-primary hover:text-background-main transition-all font-bold">&larr;</a>{% endif %}
+                
+                <div class="flex items-center gap-3 px-4 py-2 bg-background-main rounded-lg border border-border-main">
+                    <span class="text-xs font-bold text-text-muted uppercase tracking-widest">Strona</span>
+                    <input type="number" 
+                           value="{{ page_obj.number }}" 
+                           min="1" 
+                           max="{{ page_obj.paginator.num_pages }}"
+                           onkeydown="if(event.key==='Enter') window.goToPage(this, 'page')"
+                           onblur="window.goToPage(this, 'page')"
+                           class="bg-transparent text-text-main font-black text-base outline-none w-12 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none border-b border-transparent focus:border-primary transition-colors">
+                    <span class="text-xs font-bold text-text-muted uppercase tracking-widest">z {{ page_obj.paginator.num_pages }}</span>
+                </div>
+
+                {% if page_obj.has_next %}<a href="javascript:void(0)" onclick="window.fetchFilteredResults({{ page_obj.next_page_number }})" class="px-5 py-2.5 bg-background-element text-text-main rounded-lg hover:bg-primary hover:text-background-main transition-all font-bold">&rarr;</a>{% endif %}
+            </div>
+            {% endif %}
+
+            <div class="flex items-center gap-4 bg-background-card px-6 py-3 rounded-2xl border border-border-main shadow-xl">
+                <span class="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Pokaż na stronie</span>
+                <select id="per-page-select" onchange="window.fetchFilteredResults(1)" class="bg-background-element border border-border-main text-text-main text-sm font-bold rounded-xl focus:ring-primary outline-none px-4 py-2 cursor-pointer hover:border-text-muted transition-colors">
+                    <option value="10" {% if request.GET.per_page == '10' %}selected{% endif %}>10 albumów</option>
+                    <option value="15" {% if request.GET.per_page == '15' or not request.GET.per_page %}selected{% endif %}>15 albumów</option>
+                    <option value="30" {% if request.GET.per_page == '30' %}selected{% endif %}>30 albumów</option>
+                    <option value="50" {% if request.GET.per_page == '50' %}selected{% endif %}>50 albumów</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="page-queue-data" type="application/json">[{% for song in matching_songs %}{ "id": "{{ song.id }}", "url": "{% if song.audio_file %}{{ song.audio_file.url }}{% endif %}", "title": "{{ song.title|escapejs }}", "artist": "{{ song.album.artist.nickname|escapejs }}", "cover": "{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}", "album_slug": "{{ song.album.slug }}" }{% if not forloop.last %},{% endif %}{% endfor %}]</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /* Skrypty AJAX z Twojego pliku album_list pozostają bez zmian */
+    (function() {
+        window.activeGenres = window.activeGenres || new Set();
+        window.activeYear = window.activeYear || null;
+        window.activeYearMin = window.activeYearMin || null;
+        window.activeYearMax = window.activeYearMax || null;
+        const genreNames = { {% for genre in genres %}"{{ genre.id }}": "{{ genre.name }}",{% endfor %} };
+        const updateQueueFromJSON = () => { const d = document.getElementById('page-queue-data'); if (d) window.pageQueue = JSON.parse(d.textContent); };
+        const syncStateFromUrl = () => {
+            const p = new URLSearchParams(window.location.search);
+            window.activeGenres.clear();
+            p.getAll('genre').forEach(id => {
+                if (id) window.activeGenres.add(id.toString());
+            });
+            window.activeYear = p.get('year') || null;
+            window.activeYearMin = p.get('year_min') || null;
+            window.activeYearMax = p.get('year_max') || null;
+        };
+        const generateYearOptions = () => {
+            const minS = document.getElementById('year-min-select'), maxS = document.getElementById('year-max-select');
+            if (!minS || !maxS) return;
+            const curY = new Date().getFullYear();
+            let opts = ""; for (let y = curY; y >= 1950; y--) opts += `<option value="${y}">${y}</option>`;
+            minS.innerHTML = '<option value="">Od (rok)</option>' + opts; 
+            maxS.innerHTML = '<option value="">Do (rok)</option>' + opts;
+            if (window.activeYearMin) minS.value = window.activeYearMin;
+            if (window.activeYearMax) maxS.value = window.activeYearMax;
+        };
+        window.quickSearch = name => { const s = document.getElementById('search-input'); if(s) { s.value = name; window.fetchFilteredResults(1); } };
+        window.quickAddGenre = id => { window.activeGenres.add(id.toString()); window.fetchFilteredResults(1); };
+        window.quickSort = sortValue => {
+            const selector = document.getElementById('sort-selector');
+            if (selector) {
+                selector.value = sortValue;
+                window.fetchFilteredResults(1);
+            }
+        };
+        window.quickAddYear = year => { 
+            window.activeYear = year; window.activeYearMin = window.activeYearMax = null; 
+            document.getElementById('year-min-select').value = document.getElementById('year-max-select').value = '';
+            window.fetchFilteredResults(1); 
+        };
+        window.toggleGenre = function(id) {
+            id = id.toString();
+            if (window.activeGenres.has(id)) {
+                window.activeGenres.delete(id);
+            } else {
+                window.activeGenres.add(id);
+            }
+            window.fetchFilteredResults(1);
+        };
+
+        window.resetGenreFilters = function() {
+            window.activeGenres.clear();
+            window.fetchFilteredResults(1);
+        };
+
+        window.fetchFilteredResults = async function(page = null, page_s = null) {
+            const resC = document.getElementById('album-list-results'), 
+                  sort = document.getElementById('sort-selector').value, 
+                  timeRangeSelect = document.getElementById('time-range-selector'),
+                  timeRange = timeRangeSelect ? timeRangeSelect.value : 'all',
+                  urlParams = new URLSearchParams(window.location.search),
+                  query = urlParams.get('q') || '', 
+                  perP = document.getElementById('per-page-select')?.value || 15;
+            
+            const p = new URLSearchParams(); 
+            if(query) p.set('q', query); 
+            p.set('sort', sort); 
+            if(sort === '-play_count') p.set('time_range', timeRange);
+            
+            // Logika obsługi dwóch paginacji
+            const finalPage = page || urlParams.get('page') || 1;
+            const finalPageS = page_s || urlParams.get('page_s') || 1;
+            p.set('page', finalPage); 
+            p.set('page_s', finalPageS);
+            
+            p.set('per_page', perP);
+            if (window.perPageS) p.set('per_page_s', window.perPageS);
+            else if (urlParams.get('per_page_s')) p.set('per_page_s', urlParams.get('per_page_s'));
+
+            if (window.activeYear) p.set('year', window.activeYear);
+            if (window.activeYearMin) p.set('year_min', window.activeYearMin);
+            if (window.activeYearMax) p.set('year_max', window.activeYearMax);
+            window.activeGenres.forEach(id => p.append('genre', id));
+            resC.style.opacity = '0.5';
+            resC.style.pointerEvents = 'none';
+            const url = `{% url 'music:album_list' %}?${p.toString()}`;
+            try {
+                const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const html = await resp.text(), parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html');
+                const newR = doc.getElementById('album-list-results'); if (newR) resC.innerHTML = newR.innerHTML;
+                const newD = doc.getElementById('page-queue-data'); if (newD) document.getElementById('page-queue-data').textContent = newD.textContent;
+                updateQueueFromJSON(); history.replaceState({ path: url }, '', url); window.updateDynamicUI(query); if(window.syncListIcons) window.syncListIcons();
+            } catch (e) { console.error('Błąd AJAX:', e); } 
+            finally { resC.style.opacity = '1'; resC.style.pointerEvents = 'auto'; }
+        };
+
+        window.renderActiveFilters = function() {
+            const container = document.getElementById('active-filters-container'), 
+                  list = document.getElementById('active-pills-list'), 
+                  urlParams = new URLSearchParams(window.location.search),
+                  query = urlParams.get('q') || '';
+            
+            if (!container || !list) return;
+            
+            // Aktualizacja wyglądu głównych pastylek gatunków
+            const allPill = document.getElementById('genre-pill-all');
+            if (allPill) {
+                if (window.activeGenres.size === 0) {
+                    allPill.className = "px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all bg-primary text-background-main shadow-lg shadow-primary/20";
+                } else {
+                    allPill.className = "px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all bg-background-card text-text-muted border border-border-main hover:bg-background-element";
+                }
+            }
+
+            document.querySelectorAll('.genre-pill').forEach(pill => {
+                const id = pill.id.replace('genre-pill-', '');
+                if (window.activeGenres.has(id)) {
+                    pill.className = "genre-pill px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 bg-primary text-background-main shadow-lg shadow-primary/20";
+                } else {
+                    pill.className = "genre-pill px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 bg-background-card text-text-muted border border-border-main hover:bg-background-element";
+                }
+            });
+
+            list.innerHTML = '';
+            // Wyświetlamy tylko filtry tekstowe i daty (gatunki są widoczne powyżej)
+            if (query.trim() !== '') {
+                list.insertAdjacentHTML('beforeend', `<div class="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 text-xs font-bold">Fraza: "${query}"<button onclick="window.clearGlobalSearch()" class="hover:text-text-main transition-colors"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button></div>`);
+            }
+            if (window.activeYear) list.insertAdjacentHTML('beforeend', `<div class="flex items-center gap-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 px-3 py-1 rounded-full border border-purple-500/20 text-xs font-bold">Rok: ${window.activeYear}<button onclick="window.activeYear=null;window.fetchFilteredResults(1)" class="hover:text-text-main transition-colors"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button></div>`);
+            if (window.activeYearMin || window.activeYearMax) list.insertAdjacentHTML('beforeend', `<div class="flex items-center gap-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 text-xs font-bold">Okres: ${window.activeYearMin||'...'} - ${window.activeYearMax||'...'}<button onclick="window.activeYearMin=window.activeYearMax=null;document.getElementById('year-min-select').value=document.getElementById('year-max-select').value='';window.fetchFilteredResults(1)" class="hover:text-text-main transition-colors"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button></div>`);
+            
+            // Kontener pokazujemy jeśli mamy aktywne filtry tekstowe, daty LUB wybrane gatunki
+            container.classList.toggle('hidden', window.activeGenres.size === 0 && !query.trim() && !window.activeYear && !window.activeYearMin && !window.activeYearMax);
+        };
+        window.removeGenre = id => { window.activeGenres.delete(id.toString()); window.fetchFilteredResults(1); };
+        window.clearGlobalSearch = () => { 
+            const url = new URL(window.location.href);
+            url.searchParams.delete('q');
+            history.replaceState({ path: url.href }, '', url.href);
+            window.fetchFilteredResults(1);
+        };
+        window.updateDynamicUI = function(q) {
+            window.renderActiveFilters(); const sT = document.getElementById('search-status-text'), sC = document.getElementById('search-status-content'), tP = document.getElementById('title-prefix'), tS = document.getElementById('title-suffix');
+            const hasFilters = (q && q.trim() !== '') || window.activeYear || window.activeYearMin || window.activeYearMax;
+            if (hasFilters) {
+                tP.textContent = "Wyniki"; tS.textContent = "wyszukiwania"; sT.classList.remove('hidden');
+                let txt = ""; if (q) txt += `Szukasz: "${q}" `; if (window.activeYear) txt += `(Rok: ${window.activeYear}) `; if (window.activeYearMin || window.activeYearMax) txt += `(Okres: ${window.activeYearMin||'...'} - ${window.activeYearMax||'...'})`;
+                sC.textContent = txt.trim();
+            } else { tP.textContent = "Odkrywaj"; tS.textContent = "Albumy"; sT.classList.add('hidden'); }
+        };
+        window.resetAllFilters = () => { 
+            window.activeGenres.clear(); window.activeYear = window.activeYearMin = window.activeYearMax = null; 
+            const ymin = document.getElementById('year-min-select'), ymax = document.getElementById('year-max-select'), sort = document.getElementById('sort-selector');
+            if(ymin) ymin.value = ''; if(ymax) ymax.value = ''; if(sort) sort.value = '-release_date';
+            // Czyścimy też query z URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete('q');
+            history.replaceState({ path: url.href }, '', url.href);
+            window.fetchFilteredResults(1); 
+        };
+        const debounce = (f, t = 300) => { let tm; return (...a) => { clearTimeout(tm); tm = setTimeout(() => f.apply(this, a), t); }; };
+        document.addEventListener('turbo:load', () => {
+            const resultsContainer = document.getElementById('album-list-results');
+            if (!resultsContainer) return; 
+            
+            syncStateFromUrl(); generateYearOptions(); updateQueueFromJSON(); window.renderActiveFilters();
+            const q = new URLSearchParams(window.location.search).get('q') || '';
+            window.updateDynamicUI(q);
+            ['sort-selector', 'year-min-select', 'year-max-select', 'time-range-selector'].forEach(id => {
+                const el = document.getElementById(id); 
+                if (el && !el.dataset.ajaxBound) { 
+                    el.dataset.ajaxBound = "true"; 
+                    el.addEventListener('change', function() { 
+                        if (id === 'year-min-select') { window.activeYearMin = this.value; window.activeYear = null; } 
+                        if (id === 'year-max-select') { window.activeYearMax = this.value; window.activeYear = null; } 
+                        if (id === 'sort-selector') {
+                            const wrapper = document.getElementById('time-range-wrapper');
+                            if (wrapper) {
+                                if (this.value === '-play_count') wrapper.classList.remove('hidden');
+                                else wrapper.classList.add('hidden');
+                            }
+                        }
+                        window.fetchFilteredResults(1); 
+                    }); 
+                }
+            });
+        });
+    })();
+</script>
+{% endblock %}

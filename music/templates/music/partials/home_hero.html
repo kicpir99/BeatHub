@@ -1,0 +1,38 @@
+{% if featured_albums %}
+{% load image_tags %}
+<section class="relative group h-[500px]">
+    <div id="hero-slider" class="relative w-full h-full overflow-hidden rounded-3xl shadow-2xl">
+        <div id="slider-wrapper" class="flex w-full h-full transition-transform duration-700 ease-in-out" data-slides-count="{{ featured_albums|length }}">
+            {% for album in featured_albums %}
+            <div class="min-w-full h-full relative cursor-pointer" onclick="Turbo.visit('{% url 'music:album_detail' album.slug %}')">
+                <div class="absolute inset-0">
+                    {% if album.cover %}<img src="{{ album.cover|thumbnail:'1200x800' }}" class="w-full h-full object-cover">{% endif %}
+                    <div class="absolute inset-0 bg-gradient-to-t from-background-main via-background-main/60 to-transparent"></div>
+                </div>
+                
+                <div class="relative h-full flex flex-col justify-end p-8 md:p-16">
+                    <span class="text-primary font-bold uppercase tracking-widest text-sm mb-4">Polecany Album</span>
+                    <h1 class="text-5xl md:text-7xl font-black text-text-main mb-6 max-w-2xl leading-tight">{{ album.title }}</h1>
+                    <p class="text-text-secondary text-xl mb-8 font-medium">
+                        Odkryj najnowsze brzmienia od 
+                        <span onclick="event.stopPropagation(); Turbo.visit('{% url 'music:artist_detail' album.artist.slug %}')" class="text-text-main hover:text-primary transition-colors cursor-pointer">
+                            {{ album.artist.nickname }}
+                        </span>
+                    </p>
+                    <div class="flex gap-4">
+                        <button onclick='event.stopPropagation(); window.playGlobalQueue([{% for s in album.songs.all %}{id:"{{s.id}}", url:"{% if s.audio_file %}{{s.audio_file.url}}{% endif %}", title:"{{s.title|escapejs}}", artist:"{{album.artist.nickname|escapejs}}", cover:"{{album.cover.url}}", album_slug:"{{album.slug}}"}{% if not forloop.last %},{% endif %}{% endfor %}], 0, {type:"album", id:{{album.id}}})' class="bg-primary hover:bg-primary-hover text-background-main px-8 py-4 rounded-full font-bold text-lg transition-all shadow-xl transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                             <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg> Słuchaj teraz
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <button onclick="moveSlider(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-background-glass backdrop-blur-md text-text-main flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-background-main transition-all z-20 border border-border-main"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+        <button onclick="moveSlider(1)" class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-background-glass backdrop-blur-md text-text-main flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-background-main transition-all z-20 border border-border-main"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+        <div class="absolute bottom-8 right-16 flex gap-2 z-20">
+            {% for album in featured_albums %}<div class="slider-dot w-2.5 h-2.5 rounded-full bg-text-muted/20 transition-all cursor-pointer border border-border-main" onclick="goToSlide({{ forloop.counter0 }})"></div>{% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Zarejestruj się - BeatHub{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-16 bg-background-card p-8 rounded-2xl border border-border-main shadow-2xl backdrop-blur-sm">
+    <h2 class="text-3xl font-black text-text-main mb-6 text-center">Dołącz do Beat<span class="text-primary">Hub</span></h2>
+    
+    <form method="post" class="flex flex-col gap-4">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="flex flex-col gap-1">
+                <label class="text-sm text-text-muted font-medium">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <span class="text-red-400 text-xs mt-1">{{ field.errors|striptags }}</span>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="mt-4 bg-primary hover:bg-primary-hover text-background-main font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-primary-glow/20">
+            Załóż konto
+        </button>
+    </form>
+    
+    <p class="mt-6 text-center text-text-muted text-sm">
+        Masz już konto? <a href="{% url 'music:login' %}" class="text-primary hover:text-primary-hover font-bold">Zaloguj się</a>
+    </p>
+</div>
+
+<script>
+    document.querySelectorAll('input').forEach(input => {
+        input.classList.add('w-full', 'p-3', 'bg-background-element', 'border', 'border-border-main', 'rounded-xl', 'text-text-main', 'focus:ring-primary', 'focus:border-primary', 'outline-none');
+    });
+</script>
+{% endblock %}
