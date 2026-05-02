@@ -3,13 +3,13 @@ def gender_context(request):
     Kontekst procesor dostarczający spersonalizowane końcówki i zwroty 
     w zależności od wybranej płci użytkownika.
     """
-    if not request.user.is_authenticated:
-        return {}
-    
-    try:
-        gender = request.user.profile.gender
-    except:
-        gender = 'O'
+    gender = 'O'
+    if request.user.is_authenticated:
+        try:
+            gender = request.user.profile.gender
+        except Exception:
+            pass
+        
         
     # Słownik zwrotów spersonalizowanych
     # M = Mężczyzna, F = Kobieta, O = Neutralny/Inna

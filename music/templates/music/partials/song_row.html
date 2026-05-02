@@ -1,5 +1,4 @@
 {% load music_filters %}
-{% load image_tags %}
 <tr class="song-row group cursor-pointer last:border-0" 
     id="song-row-{{ song.id }}"
     data-song-id="{{ song.id }}"
@@ -11,12 +10,12 @@
     data-action="row-click">
     
     {% if row_context != 'profile' %}
-    <td class="py-4 px-6 text-text-muted text-center font-mono w-20 relative 
+    <td class="py-4 px-6 text-text-muted text-center font-mono w-20 align-middle relative 
         {% if row_context == 'playlist' or row_context == 'liked' %}
             {% if current_sort == 'order' or not current_sort or current_sort == 'None' %}drag-handle cursor-grab active:cursor-grabbing group/drag{% endif %}
         {% endif %}">
         
-        <div class="relative w-full h-5 flex items-center justify-center pointer-events-none">
+        <div class="relative w-full h-8 flex items-center justify-center pointer-events-none">
             <span class="number-span transition-opacity duration-100 
                 {% if row_context == 'detail' %}group-hover:opacity-0{% endif %}
                 {% if row_context == 'playlist' or row_context == 'liked' %}
@@ -27,34 +26,50 @@
             
             {% if row_context == 'playlist' or row_context == 'liked' %}
                 {% if current_sort == 'order' or not current_sort or current_sort == 'None' %}
-                    <div class="grip-icon absolute opacity-0 group-hover/drag:opacity-100 {% if row_context == 'liked' %}text-rose-500{% else %}text-primary{% endif %} transition-opacity duration-100">
+                    <div class="grip-icon absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/drag:opacity-100 {% if row_context == 'liked' %}text-rose-500{% else %}text-primary{% endif %} transition-opacity duration-100">
                         {% include 'music/partials/icons.html' with icon='grip' %}
                     </div>
                 {% endif %}
             {% endif %}
 
             {% if row_context == 'detail' %}
-                <div class="equalyzer">
+                <div class="equalyzer absolute inset-0 m-auto pointer-events-none">
                     <div class="equalyzer-bar"></div><div class="equalyzer-bar"></div><div class="equalyzer-bar"></div>
                 </div>
-                <div class="play-icon absolute opacity-0 group-hover:opacity-100 text-text-main transition-opacity duration-100">{% include 'music/partials/icons.html' with icon='play' %}</div>
-                <div class="pause-icon absolute opacity-0 transition-opacity duration-100">{% include 'music/partials/icons.html' with icon='pause' %}</div>
+                <div class="play-icon absolute inset-0 opacity-0 group-hover:opacity-100 text-text-main transition-opacity duration-100 pointer-events-none">
+                    <div class="w-full h-full flex items-center justify-center">
+                        {% include 'music/partials/icons.html' with icon='play' classes='w-5 h-5' %}
+                    </div>
+                </div>
+                <div class="pause-icon absolute inset-0 opacity-0 transition-opacity duration-100 pointer-events-none">
+                    <div class="w-full h-full flex items-center justify-center">
+                        {% include 'music/partials/icons.html' with icon='pause' classes='w-5 h-5' %}
+                    </div>
+                </div>
             {% endif %}
         </div>
     </td>
     {% endif %}
 
-    <td class="py-4 px-6">
+    <td class="py-4 px-6 align-middle">
         <div class="flex items-center gap-4">
             {% if row_context != 'detail' %}
                 <div class="relative w-12 h-12 shrink-0 overflow-hidden rounded-lg shadow-lg group/cover cover-wrapper">
-                    <img src="{% if song.album.cover %}{{ song.album.cover|thumbnail:'100x100' }}{% endif %}" class="w-full h-full object-cover transition-transform group-hover/cover:scale-110">
-                    <div class="cover-overlay absolute inset-0 bg-black/40 items-center justify-center transition-opacity rounded-lg">
-                        <div class="equalyzer text-white">
-                            <div class="equalyzer-bar bg-white"></div><div class="equalyzer-bar bg-white"></div><div class="equalyzer-bar bg-white"></div>
+                    <img src="{% if song.album.cover %}{{ song.album.cover.url }}{% endif %}" class="w-full h-full object-cover transition-transform group-hover/cover:scale-110">
+                    <div class="cover-overlay absolute inset-0 bg-black/40 transition-opacity rounded-lg opacity-0 group-hover/cover:opacity-100 pointer-events-none">
+                        <div class="equalyzer absolute inset-0 m-auto pointer-events-none">
+                            <div class="equalyzer-bar"></div><div class="equalyzer-bar"></div><div class="equalyzer-bar"></div>
                         </div>
-                        <div class="play-icon absolute text-white">{% include 'music/partials/icons.html' with icon='play' class='w-6 h-6' %}</div>
-                        <div class="pause-icon absolute text-white">{% include 'music/partials/icons.html' with icon='pause' class='w-6 h-6' %}</div>
+                        <div class="play-icon text-white absolute inset-0">
+                            <div class="w-full h-full flex items-center justify-center">
+                                {% include 'music/partials/icons.html' with icon='play' classes='w-6 h-6' %}
+                            </div>
+                        </div>
+                        <div class="pause-icon text-white absolute inset-0">
+                            <div class="w-full h-full flex items-center justify-center">
+                                {% include 'music/partials/icons.html' with icon='pause' classes='w-6 h-6' %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             {% endif %}
@@ -69,25 +84,25 @@
     </td>
 
     {% if row_context != 'detail' and row_context != 'profile' and row_context != 'home' %}
-    <td class="py-4 px-6 text-text-secondary text-sm hidden md:table-cell whitespace-nowrap">
+    <td class="py-4 px-6 text-text-secondary text-sm hidden md:table-cell whitespace-nowrap align-middle">
         <span data-action="visit-album" data-album-slug="{{ song.album.slug }}" class="hover:text-primary transition-colors cursor-pointer">{{ song.album.title }}</span>
     </td>
     {% endif %}
 
     {% if row_context == 'playlist' or row_context == 'home' %}
-    <td class="py-4 px-6 text-text-secondary text-xs hidden lg:table-cell whitespace-nowrap">
+    <td class="py-4 px-6 text-text-secondary text-xs hidden lg:table-cell whitespace-nowrap align-middle">
         <a href="{% url 'music:album_list' %}?genre={{ song.album.artist.genre.id }}" class="hover:text-primary transition-colors cursor-pointer px-2 py-1 bg-background-element/50 rounded-md shadow-sm border border-border-main" onclick="event.stopPropagation()">{{ song.album.artist.genre.name }}</a>
     </td>
     {% endif %}
 
     {% if row_context == 'search' or row_context == 'ranking' %}
-    <td class="py-4 px-6 text-text-muted font-mono text-xs hidden lg:table-cell">
+    <td class="py-4 px-6 text-text-muted font-mono text-xs hidden lg:table-cell align-middle">
         <a href="{% url 'music:album_list' %}?year={{ song.album.release_date|date:'Y' }}" class="hover:text-text-main transition-colors cursor-pointer" onclick="event.stopPropagation()">{{ song.album.release_date|date:"Y" }}</a>
     </td>
     {% endif %}
 
     {% if row_context == 'search' or row_context == 'detail' or row_context == 'ranking' or row_context == 'artist' or row_context == 'artist_top' %}
-    <td class="py-4 px-6 text-right text-text-muted font-mono text-xs hidden sm:table-cell">
+    <td class="py-4 px-6 text-right text-text-muted font-mono text-xs hidden sm:table-cell align-middle">
         <a href="{% url 'music:album_list' %}?sort=-play_count" class="uppercase tracking-tighter hover:text-primary cursor-pointer transition-colors" title="Sortuj wg popularności" onclick="event.stopPropagation()">
             {{ song.play_count|compact_number }} <span class="text-[10px]">odt.</span>
         </a>
@@ -95,25 +110,25 @@
     {% endif %}
 
     {% if row_context == 'detail' or row_context == 'playlist' or row_context == 'liked' or row_context == 'artist' or row_context == 'artist_top' or row_context == 'ranking' %}
-    <td class="py-4 px-6 text-right text-text-secondary font-mono text-sm">{{ song.get_duration_display }}</td>
+    <td class="py-4 px-6 text-right text-text-secondary font-mono text-sm align-middle">{{ song.get_duration_display }}</td>
     {% endif %}
 
     {% if row_context == 'playlist' or row_context == 'liked' %}
-    <td class="py-4 px-6 text-right text-text-muted text-xs hidden 2xl:table-cell whitespace-nowrap">
+    <td class="py-4 px-6 text-right text-text-muted text-xs hidden 2xl:table-cell whitespace-nowrap align-middle">
         {% if pos %}{{ pos.added_at|date:"d.m.Y" }}{% else %}{{ song.created_at|date:"d.m.Y" }}{% endif %}
     </td>
     {% endif %}
 
-    <td class="py-4 px-4 relative text-right">
-        <div class="flex items-center justify-end gap-1">
+    <td class="py-4 px-4 relative text-right align-middle">
+        <div class="flex items-center justify-end gap-0.5">
             {% if row_context == 'home' or row_context == 'search' or row_context == 'profile' or row_context == 'detail' or row_context == 'artist' or row_context == 'ranking' %}
-                <button data-action="add-to-playlist" data-song-id="{{ song.id }}" data-song-title="{{ song.title|escapejs }}" class="text-text-muted hover:text-text-main p-2 transition-colors" title="Dodaj do playlisty">{% include 'music/partials/icons.html' with icon='plus' %}</button>
-                <button data-action="share-song" data-song-title="{{ song.title|escapejs }} - {{ song.album.artist.nickname|escapejs }}" data-share-url="{% url 'music:album_detail' song.album.slug %}?play=1&song_id={{ song.id }}" class="text-text-muted hover:text-blue-400 p-2 transition-colors" title="Udostępnij">{% include 'music/partials/icons.html' with icon='share' %}</button>
-                <button data-action="toggle-like" data-song-id="{{ song.id }}" class="text-text-muted hover:text-rose-500 p-2 transition-colors">
-                    {% include 'music/partials/icons.html' with icon='like' active=song.id|is_in:liked_song_ids %}
+                <button data-action="add-to-playlist" data-song-id="{{ song.id }}" data-song-title="{{ song.title|escapejs }}" class="text-text-muted hover:text-text-main p-2.5 transition-colors flex items-center justify-center" title="Dodaj do playlisty" aria-label="Dodaj do playlisty">{% include 'music/partials/icons.html' with icon='plus' %}</button>
+                <button data-action="share-song" data-song-title="{{ song.title|escapejs }} - {{ song.album.artist.nickname|escapejs }}" data-share-url="{% url 'music:album_detail' song.album.slug %}?play=1&song_id={{ song.id }}" class="text-text-muted hover:text-blue-400 p-2.5 transition-colors flex items-center justify-center" title="Udostępnij" aria-label="Udostępnij utwór">{% include 'music/partials/icons.html' with icon='share' %}</button>
+                <button data-action="toggle-like" data-song-id="{{ song.id }}" class="text-text-muted hover:text-rose-500 p-2.5 transition-colors flex items-center justify-center" aria-label="Polub utwór">
+                    {% include 'music/partials/icons.html' with icon='like' active=song.id|is_in:liked_song_ids classes='w-5 h-5 liked-icon' %}
                 </button>
             {% else %}
-                <button data-action="toggle-dropdown" data-dropdown-id="dropdown-{{ row_context }}-{{ song.id }}" class="text-text-muted hover:text-text-main p-2 rounded-full hover:bg-background-element transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-border-main">{% include 'music/partials/icons.html' with icon='more' %}</button>
+                <button data-action="toggle-dropdown" data-dropdown-id="dropdown-{{ row_context }}-{{ song.id }}" class="text-text-muted hover:text-text-main p-2 rounded-full hover:bg-background-element transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-border-main" aria-label="Więcej opcji">{% include 'music/partials/icons.html' with icon='more' %}</button>
                 {% include 'music/partials/song_row_dropdown.html' %}
             {% endif %}
         </div>

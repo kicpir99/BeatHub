@@ -20,14 +20,20 @@ def compact_number(value):
         return value
 
 @register.filter
-def to_string_list(queryset):
-    """Zamienia listę/QuerySet ID na listę stringów dla łatwiejszego porównywania."""
-    return [str(i) for i in queryset]
-
-@register.filter
 def is_in(value, collection):
-    """Sprawdza czy wartość jest w kolekcji (obsługuje różne typy)."""
+    """Sprawdza czy wartość jest w kolekcji, minimalizując narzut pamięciowy."""
+    if not collection:
+        return False
+    
+    # Najpierw sprawdzamy oryginalne typy (bardzo szybkie O(1) jeśli collection to set)
     try:
-        return str(value) in [str(i) for i in collection]
+        if value in collection:
+            return True
+    except (TypeError, ValueError):
+        pass
+    
+    # Awaryjnie używamy generatora zamiast tworzyć całą nową listę w pamięci RAM
+    try:
+        return str(value) in map(str, collection)
     except:
         return False

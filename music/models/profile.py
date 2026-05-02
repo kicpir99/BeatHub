@@ -8,6 +8,7 @@ from PIL import Image
 from multiavatar.multiavatar import multiavatar
 from .catalog import Song, Album
 from .playlist import Playlist
+from ..validators import validate_no_profanity
 
 class LikedAlbum(models.Model):
     profile = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='liked_album_positions')
@@ -23,18 +24,37 @@ class LikedAlbum(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and self.order == 0:
-            last = LikedAlbum.objects.filter(profile=self.profile).order_by('-order').first()
-            if last:
-                self.order = last.order + 1
-        super().save(*args, **kwargs)
+            from django.db import transaction
+            from django.db.models import Max
+            from django.db.models.functions import Coalesce
+            
+            with transaction.atomic():
+                Profile.objects.select_for_update().get(pk=self.profile_id)
+                
+                last_order = LikedAlbum.objects.filter(
+                    profile=self.profile
+                ).aggregate(
+                    max_order=Coalesce(Max('order'), 0)
+                )['max_order']
+                self.order = last_order + 1
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.profile.user.username} polubił album {self.album.title}"
 
+from imagekit.models import ProcessedImageField
+from imagekit.processors import ResizeToFit
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
-    bio = models.TextField(max_length=500, blank=True, help_text="Napisz coś o sobie i swoim guście muzycznym")
+    avatar = ProcessedImageField(upload_to='avatars/',
+                                  processors=[ResizeToFit(300, 300)],
+                                  format='JPEG',
+                                  options={'quality': 85},
+                                  null=True, blank=True)
+    bio = models.TextField(max_length=500, blank=True, help_text="Napisz coś o sobie i swoim guście muzycznym", validators=[validate_no_profanity])
     liked_songs = models.ManyToManyField(Song, blank=True, related_name='liked_by', through='LikedSong')
     liked_albums = models.ManyToManyField(Album, blank=True, through='LikedAlbum')
     VISIBILITY_CHOICES = [
@@ -50,7 +70,7 @@ class Profile(models.Model):
     )
     show_profile_stats_publicly = models.BooleanField(default=True, verbose_name="Pokazuj wykresy na profilu publicznie")
     show_detailed_stats_publicly = models.BooleanField(default=True, verbose_name="Dostęp do szczegółowych statystyk publiczny")
-    location = models.CharField(max_length=100, blank=True, null=True, verbose_name="Lokalizacja")
+    location = models.CharField(max_length=100, blank=True, null=True, verbose_name="Lokalizacja", validators=[validate_no_profanity])
     instagram_url = models.URLField(max_length=200, blank=True, null=True, verbose_name="Instagram URL")
     twitter_url = models.URLField(max_length=200, blank=True, null=True, verbose_name="Twitter URL")
     website_url = models.URLField(max_length=200, blank=True, null=True, verbose_name="Strona WWW")
@@ -105,9 +125,6 @@ class Profile(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.avatar:
-            from ..services.music_service import resize_image
-            resize_image(self.avatar.path, (300, 300))
 
 class LikedSong(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='liked_positions')
@@ -123,10 +140,22 @@ class LikedSong(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and self.order == 0:
-            last = LikedSong.objects.filter(profile=self.profile).order_by('-order').first()
-            if last:
-                self.order = last.order + 1
-        super().save(*args, **kwargs)
+            from django.db import transaction
+            from django.db.models import Max
+            from django.db.models.functions import Coalesce
+
+            with transaction.atomic():
+                Profile.objects.select_for_update().get(pk=self.profile_id)
+                
+                last_order = LikedSong.objects.filter(
+                    profile=self.profile
+                ).aggregate(
+                    max_order=Coalesce(Max('order'), 0)
+                )['max_order']
+                self.order = last_order + 1
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.profile.user.username} polubił {self.song.title}"

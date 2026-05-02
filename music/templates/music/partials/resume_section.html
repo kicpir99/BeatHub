@@ -33,7 +33,6 @@
                 {% elif last_playback_obj.photo %}
                     <img src="{{ last_playback_obj.photo.url }}" class="w-full h-full object-cover rounded-2xl shadow-2xl">
                 {% elif last_playback_obj.owner %}
-                    {# Logika kolażu dla Playlist #}
                     <div class="w-full h-full rounded-2xl overflow-hidden shadow-2xl bg-gray-900 border border-white/5">
                         {% with covers=last_playback_obj.get_top_covers %}
                             {% if covers|length == 4 %}

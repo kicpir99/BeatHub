@@ -1,12 +1,11 @@
 {% if featured_albums %}
-{% load image_tags %}
 <section class="relative group h-[500px]">
     <div id="hero-slider" class="relative w-full h-full overflow-hidden rounded-3xl shadow-2xl">
         <div id="slider-wrapper" class="flex w-full h-full transition-transform duration-700 ease-in-out" data-slides-count="{{ featured_albums|length }}">
             {% for album in featured_albums %}
             <div class="min-w-full h-full relative cursor-pointer" onclick="Turbo.visit('{% url 'music:album_detail' album.slug %}')">
                 <div class="absolute inset-0">
-                    {% if album.cover %}<img src="{{ album.cover|thumbnail:'1200x800' }}" class="w-full h-full object-cover">{% endif %}
+                    {% if album.cover %}<img src="{{ album.cover.url }}" class="w-full h-full object-cover">{% endif %}
                     <div class="absolute inset-0 bg-gradient-to-t from-background-main via-background-main/60 to-transparent"></div>
                 </div>
                 

@@ -1,11 +1,10 @@
 {% load music_filters %}
-{% load image_tags %}
 {% if trending_artist %}
 <section>
     <div class="bg-gradient-to-br from-primary/10 to-background-card rounded-[2.5rem] p-8 md:p-12 border border-border-main flex flex-col lg:flex-row items-center gap-12 hover:border-primary/30 transition-all group relative overflow-hidden shadow-sm hover:shadow-md">
         <div class="absolute -right-20 -top-20 w-80 h-80 bg-primary/10 rounded-full blur-[100px]"></div>
         <div class="w-56 h-56 md:w-64 md:h-64 shrink-0 relative">
-            <img src="{% if trending_artist.photo %}{{ trending_artist.photo|thumbnail:'400x400' }}{% else %}{{ trending_artist.profile.avatar_url|thumbnail:'400x400' }}{% endif %}" class="w-full h-full object-cover rounded-full shadow-2xl border-4 border-border-main transition-transform duration-500 group-hover:scale-105">
+            <img src="{% if trending_artist.photo %}{{ trending_artist.photo.url }}{% else %}{{ trending_artist.profile.avatar_url }}{% endif %}" class="w-full h-full object-cover rounded-full shadow-2xl border-4 border-border-main transition-transform duration-500 group-hover:scale-105">
             <div class="absolute bottom-4 right-4 bg-primary p-3 rounded-full shadow-xl"><svg class="w-8 h-8 text-background-main" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"></path></svg></div>
         </div>
         <div class="flex-1 z-10">
@@ -30,15 +29,21 @@
                              data-context-type="artist"
                              data-context-id="{{ trending_artist.id }}">
                             <div class="relative w-10 h-10 shrink-0 overflow-hidden rounded-lg cover-wrapper">
-                                <img src="{{ song.album.cover|thumbnail:'100x100' }}" class="w-full h-full object-cover">
-                                <div class="cover-overlay absolute inset-0 bg-black/40 items-center justify-center transition-opacity rounded-lg">
-                                    <div class="equalyzer text-white">
-                                        <div class="equalyzer-bar bg-white"></div>
-                                        <div class="equalyzer-bar bg-white"></div>
-                                        <div class="equalyzer-bar bg-white"></div>
+                                <img src="{{ song.album.cover.url }}" class="w-full h-full object-cover">
+                                <div class="cover-overlay absolute inset-0 bg-black/40 transition-opacity rounded-lg opacity-0 group-hover/song:opacity-100 pointer-events-none">
+                                    <div class="equalyzer absolute inset-0 m-auto pointer-events-none">
+                                        <div class="equalyzer-bar"></div><div class="equalyzer-bar"></div><div class="equalyzer-bar"></div>
                                     </div>
-                                    <div class="play-icon absolute text-white">{% include 'music/partials/icons.html' with icon='play' %}</div>
-                                    <div class="pause-icon absolute text-white">{% include 'music/partials/icons.html' with icon='pause' %}</div>
+                                    <div class="play-icon text-white absolute inset-0">
+                                        <div class="w-full h-full flex items-center justify-center">
+                                            {% include 'music/partials/icons.html' with icon='play' classes='w-5 h-5' %}
+                                        </div>
+                                    </div>
+                                    <div class="pause-icon text-white absolute inset-0">
+                                        <div class="w-full h-full flex items-center justify-center">
+                                            {% include 'music/partials/icons.html' with icon='pause' classes='w-5 h-5' %}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="overflow-hidden">

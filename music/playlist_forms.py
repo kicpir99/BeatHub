@@ -32,7 +32,9 @@ PlaylistPositionFormSet = inlineformset_factory(
     Playlist, 
     PlaylistPosition,
     fields=['song', 'order'],
-    extra=1, # Pozwala dodać jeden nowy utwór na końcu
+    extra=0, # Nowe wiersze dodawane tylko przyciskiem "Dodaj piosenkę"
+    min_num=0,
+    validate_min=False,
     can_delete=True,
     widgets={
         'song': forms.Select(attrs={

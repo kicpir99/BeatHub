@@ -125,19 +125,35 @@ class Command(BaseCommand):
                 artist_data = []
                 for i in range(NUM_ARTISTS):
                     lang = random.choice(list(fakers.keys()))
-                    artist = Artist.objects.create(nickname=f"{fakers[lang].first_name()} {fakers[lang].last_name()}", genre=random.choice(genre_objs), photo=artist_imgs[i])
+                    fake = fakers[lang]
+                    pl_fake = fakers['pl']
+                    bio = pl_fake.paragraph(nb_sentences=random.randint(3, 8)) if random.random() < 0.8 else ""
+                    artist = Artist.objects.create(
+                        nickname=f"{fake.first_name()} {fake.last_name()}",
+                        genre=random.choice(genre_objs),
+                        photo=artist_imgs[i],
+                        bio=bio
+                    )
                     artist_data.append({'obj': artist, 'lang': lang})
 
                 self.stdout.write('Tworzenie Albumów...')
+                producer_names = [f"{fakers['en'].first_name()} {fakers['en'].last_name()}" for _ in range(20)]
                 album_data = []
                 for i in range(NUM_ALBUMS):
                     a_dict = random.choice(artist_data)
                     fake = fakers[a_dict['lang']]
-                    album = Album.objects.create(title=" ".join(fake.words(nb=random.randint(1,3))).title(), artist=a_dict['obj'], cover=album_imgs[i], release_date=fake.date_between(start_date='-20y'))
+                    produced_by = random.choice(producer_names) if random.random() < 0.7 else None
+                    album = Album.objects.create(
+                        title=" ".join(fake.words(nb=random.randint(1,3))).title(),
+                        artist=a_dict['obj'],
+                        cover=album_imgs[i],
+                        release_date=fake.date_between(start_date='-20y'),
+                        produced_by=produced_by
+                    )
                     album_data.append({'obj': album, 'lang': a_dict['lang']})
 
-                self.stdout.write('Tworzenie Piosenek i Audio (Diagnostyka)...')
-                all_songs, plays = [], []
+                self.stdout.write('Tworzenie Piosenek i Audio...')
+                all_songs = []
                 now = timezone.now()
                 for i in range(NUM_SONGS):
                     alb_dict = random.choice(album_data)
@@ -152,20 +168,15 @@ class Command(BaseCommand):
                         album=alb_dict['obj'],
                         play_count=random.randint(50, 5000)
                     )
-                    song.save(skip_metadata=True) # Pierwszy zapis, duration_sec powinno przetrwać
+                    song.save()
                     all_songs.append(song)
-                    
-                    for _ in range(random.randint(5, 50)):
-                        plays.append(SongPlay(song=song, played_at=now-timedelta(days=random.randint(0,30), hours=random.randint(0,23))))
 
                     if template:
                         with open(template, 'rb') as f:
-                            # WAŻNE: save=False zapobiega wywołaniu save() modelu
                             song.audio_file.save(f"song_{song.id}.mp3", ContentFile(f.read()), save=False)
                         
-                        # Ręczny zapis z wymuszeniem zachowania czasu
                         Song.objects.filter(pk=song.pk).update(duration_sec=duration)
-                        song.save(skip_metadata=True)
+                        song.save()
 
                     if random.random() < 0.2:
                         song.featured_artists.add(*random.sample([d['obj'] for d in artist_data if d['obj'].id != alb_dict['obj'].artist.id], random.randint(1,2)))
@@ -178,19 +189,36 @@ class Command(BaseCommand):
                     p = user.profile
                     p.bio, p.location = fake.text(max_nb_chars=200), fake.city()
                     
-                    # Losujemy widoczność profilu
                     p.visibility = random.choice(['public', 'followers', 'private'])
-                    # Losujemy widoczność statystyk (nowe!)
                     p.show_profile_stats_publicly = random.choice([True, False])
                     p.show_detailed_stats_publicly = random.choice([True, False])
                     
-                    # Losujemy linki społecznościowe
                     if random.random() < 0.7: p.instagram_url = f"https://instagram.com/{fake.user_name()}"
                     if random.random() < 0.6: p.twitter_url = f"https://x.com/{fake.user_name()}"
                     if random.random() < 0.5: p.website_url = fake.url()
                     
-                    # Losujemy płeć (nowe!)
                     p.gender = random.choice(['M', 'F', 'O'])
+                    
+                    # Losowa ostatnia aktywność (od kilku minut do kilku tygodni temu)
+                    activity_ago = random.choice([
+                        timedelta(minutes=random.randint(1, 4)),     # online
+                        timedelta(minutes=random.randint(10, 59)),   # niedawno
+                        timedelta(hours=random.randint(1, 23)),      # dziś
+                        timedelta(days=random.randint(1, 7)),        # ten tydzień
+                        timedelta(days=random.randint(8, 30)),       # dawniej
+                    ])
+                    p.last_activity = now - activity_ago
+                    
+                    # Losowe dane ostatniego odtwarzania dla sekcji "Wznów"
+                    if random.random() < 0.6 and all_songs:
+                        resume_song = random.choice(all_songs)
+                        p.last_playback = {
+                            'song_id': str(resume_song.id),
+                            'song_title': resume_song.title,
+                            'artist': resume_song.album.artist.nickname,
+                            'cover': resume_song.album.cover.url if resume_song.album.cover else '',
+                            'position': random.randint(10, max(11, resume_song.duration_sec - 30)),
+                        }
                     
                     if random.random() < 0.6: p.avatar = user_imgs[i]
                     p.save()
@@ -219,7 +247,7 @@ class Command(BaseCommand):
                         name=fake.catch_phrase(), 
                         description=desc,
                         owner=random.choice(user_objs), 
-                        is_public=True
+                        is_public=random.random() < 0.8  # 80% publicznych, 20% prywatnych
                     )
                     for idx, s in enumerate(random.sample(all_songs, random.randint(5, 20))):
                         PlaylistPosition.objects.create(playlist=playlist, song=s, order=idx)
@@ -227,7 +255,6 @@ class Command(BaseCommand):
 
                 self.stdout.write('Generowanie historii odtworzeń (SongPlay) - rozpiętość 3 lata...')
                 plays = []
-                now = timezone.now()
                 # Zwiększamy liczbę odtworzeń dla lepszych statystyk
                 for song in all_songs:
                     # Każda piosenka ma od 10 do 100 odtworzeń w historii

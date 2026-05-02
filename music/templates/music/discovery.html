@@ -21,11 +21,11 @@
         top: 2rem;
         right: 2rem;
         z-index: 100;
-        background: var(--background-surface);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        padding: 0.8rem 1.4rem;
-        border-radius: 1.8rem;
+        background: var(--background-card);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        padding: 0.6rem 1.2rem;
+        border-radius: 1.2rem;
         border: 1px solid var(--border-main);
         display: flex;
         align-items: center;
@@ -481,7 +481,7 @@
             </div>
         </div>
 
-        <button onclick="window.discovery.toggleFilterPanel()" class="w-full mt-4 py-3 bg-background-element hover:bg-background-card text-text-main font-black text-[10px] uppercase tracking-[0.2em] rounded-xl border border-border-main transition-all shadow-sm">
+        <button onclick="window.discovery.toggleFilterPanel()" class="w-full mt-4 py-3 bg-primary hover:bg-primary/90 text-background-main font-black text-[11px] uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95">
             Zamknij i miksuj
         </button>
     </div>
@@ -589,27 +589,49 @@ if (typeof window.DiscoveryController === 'undefined') {
         async init() {
             if (window.audio) { window.audio.pause(); const gp = document.getElementById('global-player'); if (gp) gp.classList.add('translate-y-full'); }
             this.updateYearSlider(true); // true = skip refresh on init
+            
+            // Inicjalizuj wizualizator od razu - AudioContext zostanie utworzony (nawet jeśli w stanie suspended)
+            this.initVisualizer();
+            
             await this.loadSongs();
             this.renderCards();
             
-            document.addEventListener('mousemove', (e) => this.handleMove(e));
-            document.addEventListener('mouseup', (e) => this.handleEnd(e));
-            document.addEventListener('touchmove', (e) => this.handleMove(e), { passive: false });
-            document.addEventListener('touchend', (e) => this.handleEnd(e));
+            this.boundHandleMove = (e) => this.handleMove(e);
+            this.boundHandleEnd = (e) => this.handleEnd(e);
+            this.boundPerformSeek = (e) => this.performSeek(e);
+            this.boundSeekEnd = () => { if (this.isSeeking) { this.isSeeking = false; document.querySelectorAll('.progress-bar-wrapper').forEach(w => w.classList.remove('is-dragging')); } };
             this.boundHandleKeydown = (e) => this.handleKeydown(e);
+            this.boundPlayEvent = (e) => { if (e.target.id !== 'discovery-audio') this.stopAudio(); };
+
+            document.addEventListener('mousemove', this.boundHandleMove);
+            document.addEventListener('mouseup', this.boundHandleEnd);
+            document.addEventListener('touchmove', this.boundHandleMove, { passive: false });
+            document.addEventListener('touchend', this.boundHandleEnd);
             document.addEventListener('keydown', this.boundHandleKeydown);
-            window.addEventListener('mousemove', (e) => this.performSeek(e));
-            window.addEventListener('mouseup', () => { if (this.isSeeking) { this.isSeeking = false; document.querySelectorAll('.progress-bar-wrapper').forEach(w => w.classList.remove('is-dragging')); } });
-            window.addEventListener('play', (e) => { if (e.target.id !== 'discovery-audio') this.stopAudio(); }, true);
-            this.audio.addEventListener('play', () => this.updateUIState(false));
-            this.audio.addEventListener('playing', () => this.updateUIState(false));
+            window.addEventListener('mousemove', this.boundPerformSeek);
+            window.addEventListener('mouseup', this.boundSeekEnd);
+            window.addEventListener('play', this.boundPlayEvent, true);
+            
+            this.audio.addEventListener('play', () => {
+                if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume().catch(() => {});
+                }
+                this.updateUIState(false);
+            });
+            this.audio.addEventListener('playing', () => {
+                if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume().catch(() => {});
+                }
+                this.updateUIState(false);
+            });
             this.audio.addEventListener('pause', () => this.updateUIState(true));
+            
             const setupAudioOnce = (e) => { 
-                this.initVisualizer(); 
+                if (!this.audioCtx) this.initVisualizer(); 
                 if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
                 
                 // Jeśli kliknięto w element interaktywny, pozwól mu obsłużyć audio samodzielnie
-                const isInteractive = e.target.closest('button, .action-btn, .pp-icon-container, .progress-bar-wrapper, .volume-control-wrapper, .clickable-title');
+                const isInteractive = e.target && e.target.closest('button, .action-btn, .pp-icon-container, .progress-bar-wrapper, .volume-control-wrapper, .clickable-title');
                 if (!isInteractive && this.audio.paused) {
                     this.audio.play().catch(() => {});
                 }
@@ -822,7 +844,7 @@ if (typeof window.DiscoveryController === 'undefined') {
                                 </div>
                                 <div class="volume-control-wrapper">
                                     <svg class="w-7 h-7 volume-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M14.016 3.234q3.047 0.656 5.016 3.117t1.969 5.648-1.969 5.648-5.016 3.117v-2.063q2.203-0.656 3.586-2.484t1.383-4.219-1.383-4.219-3.586-2.484v-2.063zM16.5 12q0 2.25-1.406 3.891t-3.594 2.109v-2.063q1.219-0.375 2.016-1.477t0.797-2.461-0.797-2.461-2.016-1.477v-2.063q2.188 0.469 3.594 2.109t1.406 3.891zM3 9h4l5-5v16l-5-5h-4v-6z"></path></svg>
-                                    <input type="range" class="volume-slider-discovery" min="0" max="1" step="0.01" value="${this.audio.volume}" oninput="window.discovery.handleVolume(this.value)">
+                                    <input type="range" class="volume-slider-discovery" min="0" max="1" step="0.01" value="${this.audio.volume}" style="background: linear-gradient(to right, var(--primary) ${this.audio.volume * 100}%, var(--border-main) ${this.audio.volume * 100}%)" oninput="window.discovery.handleVolume(this.value)">
                                 </div>
                             </div>
                             <div class="action-buttons">
@@ -909,8 +931,16 @@ if (typeof window.DiscoveryController === 'undefined') {
             const vol = parseFloat(val); this.audio.volume = vol; if (window.audio) window.audio.volume = vol;
             localStorage.setItem('beathub-volume', vol);
             const globalSlider = document.getElementById('volume-slider');
-            if (globalSlider) { globalSlider.value = vol; if (typeof window.updateVolumeBackground === 'function') window.updateVolumeBackground(vol); }
-            document.querySelectorAll('.volume-slider-discovery').forEach(input => input.value = vol);
+            if (globalSlider) { 
+                globalSlider.value = vol; 
+                if (window.BeatHub && window.BeatHub.Player && typeof window.BeatHub.Player.updateVolumeBackground === 'function') {
+                    window.BeatHub.Player.updateVolumeBackground(vol);
+                }
+            }
+            document.querySelectorAll('.volume-slider-discovery').forEach(input => {
+                input.value = vol;
+                input.style.background = `linear-gradient(to right, var(--primary) ${vol * 100}%, var(--border-main) ${vol * 100}%)`;
+            });
         }
 
         startSeek(e) { e.preventDefault(); e.stopPropagation(); this.isSeeking = true; e.currentTarget.classList.add('is-dragging'); this.performSeek(e); if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume(); }
@@ -1034,6 +1064,22 @@ if (typeof window.DiscoveryController === 'undefined') {
 
         stopAudio() { this.audio.pause(); if (this.progressUpdateId) cancelAnimationFrame(this.progressUpdateId); }
 
+        destroy() {
+            this.stopAudio();
+            if (this.boundHandleMove) {
+                document.removeEventListener('mousemove', this.boundHandleMove);
+                document.removeEventListener('touchmove', this.boundHandleMove);
+            }
+            if (this.boundHandleEnd) {
+                document.removeEventListener('mouseup', this.boundHandleEnd);
+                document.removeEventListener('touchend', this.boundHandleEnd);
+            }
+            if (this.boundHandleKeydown) document.removeEventListener('keydown', this.boundHandleKeydown);
+            if (this.boundPerformSeek) window.removeEventListener('mousemove', this.boundPerformSeek);
+            if (this.boundSeekEnd) window.removeEventListener('mouseup', this.boundSeekEnd);
+            if (this.boundPlayEvent) window.removeEventListener('play', this.boundPlayEvent, true);
+        }
+
         updateDiscoveryCounter(delta) {
             const el = document.getElementById('today-discovery-count');
             const widget = document.getElementById('stats-widget');
@@ -1048,8 +1094,12 @@ if (typeof window.DiscoveryController === 'undefined') {
 
         showEmptyState() { if (this.boundHandleKeydown) document.removeEventListener('keydown', this.boundHandleKeydown); this.stack.innerHTML = `<div class="empty-state bg-background-card/40 p-10 rounded-[3rem] border border-border-main backdrop-blur-2xl"><div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-8"><svg class="w-12 h-12 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div><h2 class="text-3xl font-black text-text-main mb-3">To już wszystko!</h2><p class="text-text-muted mb-10 leading-relaxed">{{ g.przesluchales|capfirst }} wszystkie propozycje na dziś. Wróć jutro po nową dawkę inspiracji!</p><button onclick="location.reload()" class="w-full bg-primary text-background-main font-black py-4 rounded-2xl hover:scale-105 transition-all shadow-xl">Spróbuj ponownie</button></div>`; this.bg.style.backgroundImage = 'none'; }
     }
-    document.addEventListener('turbo:load', () => { if (document.getElementById('card-stack')) window.discovery = new DiscoveryController(); });
-    document.addEventListener('turbo:before-visit', () => { if (window.discovery) window.discovery.stopAudio(); });
+    document.addEventListener('turbo:load', () => { 
+        if (window.discovery) { window.discovery.destroy(); window.discovery = null; }
+        if (document.getElementById('card-stack')) window.discovery = new DiscoveryController(); 
+    });
+    document.addEventListener('turbo:before-visit', () => { if (window.discovery) { window.discovery.destroy(); window.discovery = null; } });
+    document.addEventListener('turbo:before-cache', () => { if (window.discovery) { window.discovery.destroy(); window.discovery = null; } });
 }
 </script>
 {% endblock %}

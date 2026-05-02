@@ -56,12 +56,17 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
             <!-- Total Plays -->
             <div class="bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm relative overflow-hidden group shadow-lg">
-                <div class="absolute -right-8 -bottom-8 text-primary/5 group-hover:text-primary/10 transition-colors">
+                <div class="absolute -right-8 -bottom-8 text-emerald-500/5 group-hover:text-emerald-500/10 transition-colors">
                     <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
                 </div>
-                <div class="relative">
-                    <p class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Wszystkie odtworzenia</p>
-                    <h3 class="text-4xl font-black text-text-main">{{ total_plays_count }}</h3>
+                <div class="relative flex items-center gap-4">
+                    <div class="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                        <svg class="w-6 h-6 text-emerald-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-black text-text-main leading-none">{{ total_plays_count }}</h3>
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1">Odtworzenia</p>
+                    </div>
                 </div>
             </div>
 
@@ -70,9 +75,14 @@
                 <div class="absolute -right-8 -bottom-8 text-indigo-500/5 group-hover:text-indigo-500/10 transition-colors">
                     <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
                 </div>
-                <div class="relative">
-                    <p class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Czas słuchania</p>
-                    <h3 class="text-4xl font-black text-text-main">{{ total_hours_all }} <span class="text-lg font-normal text-text-muted">h</span></h3>
+                <div class="relative flex items-center gap-4">
+                    <div class="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                        <svg class="w-6 h-6 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-black text-text-main leading-none">{{ total_hours_all }} <span class="text-lg font-normal text-text-muted">h</span></h3>
+                        <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1">Czas słuchania</p>
+                    </div>
                 </div>
             </div>
 

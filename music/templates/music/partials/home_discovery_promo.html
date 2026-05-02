@@ -15,7 +15,7 @@
             <p class="text-white/80 text-lg mb-8 max-w-xl leading-relaxed">Przesuwaj karty, słuchaj dropów i buduj swoją listę odkryć. Nasz inteligentny algorytm dobierze utwory idealnie pod Twój gust.</p>
             <a href="{% url 'music:discovery' %}" class="inline-flex items-center gap-3 bg-white text-indigo-600 px-10 py-4 rounded-2xl font-black hover:scale-105 transition-all shadow-2xl group/btn">
                 Rozpocznij Odkrywanie
-                <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                {% include "music/partials/icons.html" with icon="arrow-right" classes="w-5 h-5 group-hover:translate-x-1 transition-transform" %}
             </a>
         </div>
 
@@ -24,7 +24,7 @@
             <div class="absolute inset-0 bg-white/20 rounded-3xl border border-white/30 backdrop-blur-sm -rotate-3 -translate-x-2 -translate-y-2"></div>
             <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-700 rounded-3xl border border-white/40 shadow-2xl flex flex-col items-center justify-center p-6 text-center">
                 <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4">
-                    <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                    {% include "music/partials/icons.html" with icon="like" classes="w-10 h-10 text-white" active=True %}
                 </div>
                 <div class="h-2 w-32 bg-white/30 rounded-full mb-2"></div>
                 <div class="h-2 w-20 bg-white/20 rounded-full"></div>

@@ -1,86 +1,175 @@
 import random
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Count, Q, F
+from django.db.models import Count, Q, F, Sum, OuterRef, Subquery
 from ..models import Genre, Song, SongPlay, Artist, Album, Profile, Playlist
 from ..utils import apply_cover_seed
+from . import playback_service
+
+from django.core.cache import cache
 
 def get_home_page_data(request, seed):
     """
     Zbiera wszystkie dane potrzebne do wyświetlenia strony głównej.
-    Logika została uproszczona dzięki użyciu Custom Managers w modelach.
+    Zoptymalizowane pod kątem keszowania (zapisujemy ID, nie obiekty).
     """
-    # 1. Trendy (Piosenki)
     period_of_days = 7
-    trending_songs = Song.objects.trending(days=period_of_days)
-    top_songs = trending_songs[:10]
+    cache_key = "home_page_trending_ids"
+    cached_ids = cache.get(cache_key)
+    
+    if cached_ids:
+        top_songs = list(Song.objects.filter(id__in=cached_ids['top_songs_ids']).select_related('album', 'album__artist').prefetch_related('featured_artists'))
+        top_songs.sort(key=lambda x: cached_ids['top_songs_ids'].index(x.id))
+        
+        top_songs_ids = cached_ids['top_songs_ids']
+        top_10_artists_ids = cached_ids['top_10_artists_ids']
+        
+        top_artists_list = list(Artist.objects.filter(id__in=cached_ids['top_artists_ids']))
+        top_artists_list.sort(key=lambda x: cached_ids['top_artists_ids'].index(x.id))
+        
+        trending_artist = Artist.objects.filter(id=cached_ids['trending_artist_id']).first()
+        trending_artist_songs = list(Song.objects.filter(id__in=cached_ids['trending_artist_songs_ids']).select_related('album', 'album__artist').prefetch_related('featured_artists'))
+        
+        album_duration_subquery = Song.objects.filter(
+            album=OuterRef('pk')
+        ).values('album').annotate(
+            total=Sum('duration_sec')
+        ).values('total')
 
-    # 2. Top Artyści
-    top_artists_qs = Artist.objects.top_by_plays(days=period_of_days, count=6)
-    
-    # Do określenia "poprzedniego zwycięzcy" nadal potrzebujemy logiki (lub kolejnej metody managera)
-    cut_off_current = timezone.now() - timedelta(days=period_of_days)
-    cut_off_previous_start = timezone.now() - timedelta(days=period_of_days * 2)
-    
-    previous_winner = Artist.objects.filter(
-        albums__songs__individual_plays__played_at__gte=cut_off_previous_start,
-        albums__songs__individual_plays__played_at__lt=cut_off_current
-    ).annotate(
-        total_plays=Count('albums__songs__individual_plays')
-    ).order_by('-total_plays').first()
+        playlist_duration_subquery = Song.objects.filter(
+            playlists=OuterRef('pk')
+        ).values('playlists').annotate(
+            total=Sum('duration_sec')
+        ).values('total')
 
-    top_artists_list = list(top_artists_qs)
-    needed = 6 - len(top_artists_list)
-    if needed > 0:
-        existing_ids = [artist.id for artist in top_artists_list]
-        random_artists = Artist.objects.exclude(id__in=existing_ids).order_by('?')[:needed]
-        top_artists_list.extend(list(random_artists))
-    
-    # 3. Trending Artist
-    trending_artist = None
-    if top_artists_list:
-        if previous_winner and top_artists_list[0].id == previous_winner.id and len(top_artists_list) > 1:
-            trending_artist = top_artists_list[1]
-        else:
-            trending_artist = top_artists_list[0]
+        featured_albums_pool = list(Album.objects.filter(
+            id__in=cached_ids['featured_albums_ids']
+        ).select_related('artist').annotate(
+            total_duration_db=Subquery(album_duration_subquery),
+            songs_count=Count('songs', distinct=True)
+        ).prefetch_related('songs'))
+        
+        community_playlists = list(Playlist.objects.filter(
+            id__in=cached_ids['community_playlists_ids']
+        ).select_related('owner', 'owner__profile').prefetch_related(
+            'playlistposition_set__song__album',
+            'playlistposition_set__song__album__artist'
+        ).annotate(
+            total_duration_db=Subquery(playlist_duration_subquery),
+            songs_count=Count('songs', distinct=True),
+            followers_count=Count('followed_by', distinct=True)
+        ))
     else:
-        latest_album = Album.objects.order_by('-release_date').first()
-        if latest_album:
-            trending_artist = latest_album.artist
+        # 1. Trendy (Piosenki)
+        trending_songs_qs = Song.objects.trending(days=period_of_days)
+        top_songs = list(trending_songs_qs[:10])
+        top_songs_ids = [s.id for s in top_songs]
+        top_10_artists_ids = list(set(s.album.artist_id for s in top_songs))
 
-    trending_artist_songs = []
-    if trending_artist:
-        trending_artist_songs = Song.objects.filter(
-            album__artist=trending_artist
-        ).select_related('album__artist').prefetch_related('featured_artists').order_by('-play_count')[:3]
+        top_artists_qs = Artist.objects.top_by_plays(days=period_of_days, count=6)
+        top_artists_list = list(top_artists_qs)
+        
+        needed_artists = 6 - len(top_artists_list)
+        if needed_artists > 0:
+            existing_ids = [artist.id for artist in top_artists_list]
+            random_artists = Artist.objects.exclude(id__in=existing_ids).order_by('?')[:needed_artists]
+            top_artists_list.extend(list(random_artists))
+        
+        top_artists_ids = [a.id for a in top_artists_list]
 
-    # 4. Discovery Songs
-    top_10_artists_ids = trending_songs[:10].values_list('album__artist_id', flat=True)
+        # 3. Trending Artist
+        cut_off_current = timezone.now() - timedelta(days=period_of_days)
+        cut_off_previous_start = timezone.now() - timedelta(days=period_of_days * 2)
+        
+        previous_winner = Artist.objects.filter(
+            albums__songs__individual_plays__played_at__gte=cut_off_previous_start,
+            albums__songs__individual_plays__played_at__lt=cut_off_current
+        ).annotate(
+            total_plays=Count('albums__songs__individual_plays')
+        ).order_by('-total_plays').first()
+
+        if previous_winner and top_artists_list and top_artists_list[0].id == previous_winner.id and len(top_artists_list) > 1:
+            trending_artist = top_artists_list[1]
+        elif top_artists_list:
+            trending_artist = top_artists_list[0]
+        else:
+            latest_album = Album.objects.select_related('artist').order_by('-release_date').first()
+            trending_artist = latest_album.artist if latest_album else None
+
+        trending_artist_songs = []
+        if trending_artist:
+            trending_artist_songs = list(Song.objects.filter(
+                album__artist=trending_artist
+            ).select_related('album', 'album__artist').prefetch_related('featured_artists').order_by('-play_count')[:3])
+
+        trending_albums = Album.objects.trending(days=period_of_days)
+        trending_album_ids = list(trending_albums[:20].values_list('id', flat=True))
+        
+        if len(trending_album_ids) < 20:
+            needed = 20 - len(trending_album_ids)
+            extra_album_ids = list(Album.objects.exclude(
+                id__in=trending_album_ids
+            ).order_by('-release_date')[:needed].values_list('id', flat=True))
+            featured_albums_ids = trending_album_ids + extra_album_ids
+        else:
+            featured_albums_ids = trending_album_ids
+
+        album_duration_subquery = Song.objects.filter(
+            album=OuterRef('pk')
+        ).values('album').annotate(
+            total=Sum('duration_sec')
+        ).values('total')
+
+        featured_albums_pool = list(Album.objects.filter(
+            id__in=featured_albums_ids
+        ).select_related('artist').annotate(
+            total_duration_db=Subquery(album_duration_subquery),
+            songs_count=Count('songs', distinct=True)
+        ).prefetch_related('songs'))
+        
+        # 6. Community Playlists
+        community_playlists_qs = Playlist.objects.trending(days=period_of_days)[:5]
+        community_playlists = list(community_playlists_qs)
+        
+        if not community_playlists:
+            playlist_duration_subquery = Song.objects.filter(
+                playlists=OuterRef('pk')
+            ).values('playlists').annotate(
+                total=Sum('duration_sec')
+            ).values('total')
+
+            community_playlists = list(Playlist.objects.filter(
+                is_public=True
+            ).select_related('owner', 'owner__profile').prefetch_related(
+                'playlistposition_set__song__album',
+                'playlistposition_set__song__album__artist'
+            ).annotate(
+                total_duration_db=Subquery(playlist_duration_subquery),
+                songs_count=Count('songs', distinct=True),
+                followers_count=Count('followed_by', distinct=True)
+            ).order_by('?')[:5])
+
+        # Zapisujemy TYLKO identyfikatory do cache
+        cache.set(cache_key, {
+            'top_songs_ids': top_songs_ids,
+            'top_10_artists_ids': top_10_artists_ids,
+            'top_artists_ids': top_artists_ids,
+            'trending_artist_id': trending_artist.id if trending_artist else None,
+            'trending_artist_songs_ids': [s.id for s in trending_artist_songs],
+            'featured_albums_ids': [a.id for a in featured_albums_pool],
+            'community_playlists_ids': [p.id for p in community_playlists]
+        }, 3600)
+
     discovery_songs = Song.objects.filter(
         album__artist_id__in=top_10_artists_ids
-    ).select_related('album__artist').prefetch_related('featured_artists').exclude(
-        id__in=trending_songs[:10].values_list('id', flat=True)
+    ).select_related('album', 'album__artist').prefetch_related('featured_artists').exclude(
+        id__in=top_songs_ids
     ).order_by('?')[:20]
 
-    # 5. Featured Albums
-    trending_albums = Album.objects.trending(days=period_of_days)
-    trending_album_ids = list(trending_albums[:20].values_list('id', flat=True))
-    
-    if len(trending_album_ids) >= 5:
-        selected_ids = random.sample(trending_album_ids, 5)
-    else:
-        needed = 5 - len(trending_album_ids)
-        extra_album_ids = list(Album.objects.exclude(
-            id__in=trending_album_ids
-        ).order_by('-release_date')[:needed].values_list('id', flat=True))
-        selected_ids = trending_album_ids + extra_album_ids
-    
-    final_featured = list(Album.objects.filter(id__in=selected_ids).select_related('artist').prefetch_related('songs'))
-    random.shuffle(final_featured)
-    featured_albums = final_featured[:5]
+    featured_albums = list(featured_albums_pool)
+    random.shuffle(featured_albums)
+    featured_albums = featured_albums[:5]
 
-    # 6. Wróć do słuchania
-    # ... (bez zmian)
     last_playback_obj = None
     last_playback_json = None
     if request.user.is_authenticated:
@@ -90,39 +179,13 @@ def get_home_page_data(request, seed):
             obj_id = last.get('id')
             song_id = last.get('song_id')
             
-            try:
-                if obj_type == 'album' and obj_id:
-                    last_playback_obj = Album.objects.get(id=obj_id)
-                elif obj_type == 'playlist' and obj_id:
-                    last_playback_obj = Playlist.objects.get(id=obj_id)
-                elif obj_type == 'artist' and obj_id:
-                    last_playback_obj = Artist.objects.get(id=obj_id)
-                elif obj_type == 'liked':
-                    last_playback_obj = 'liked'
-            except:
-                last_playback_obj = None
-            
-            if not last_playback_obj and song_id:
-                try:
-                    last_playback_obj = Song.objects.get(id=song_id)
-                except:
-                    pass
-            
+            last_playback_obj, _ = playback_service.get_playback_object(obj_type, obj_id, song_id)
             last_playback_json = last
             if last_playback_obj and hasattr(last_playback_obj, 'owner'):
                 apply_cover_seed(last_playback_obj, seed)
 
-    # 7. Community Playlists
-    community_playlists = Playlist.objects.trending(days=period_of_days)[:5]
-    
-    if not community_playlists.exists():
-        community_playlists = Playlist.objects.filter(is_public=True).select_related('owner__profile').prefetch_related(
-            'playlistposition_set__song__album__artist'
-        ).order_by('?')[:5]
-
     apply_cover_seed(community_playlists, seed)
 
-    # 8. Rekomendacje (Może Ci się spodobać)
     followed_artists_songs = []
     liked_song_ids = []
     liked_album_ids = []
@@ -134,7 +197,7 @@ def get_home_page_data(request, seed):
         if followed_artists.exists():
             followed_artists_songs = Song.objects.filter(
                 album__artist__in=followed_artists
-            ).select_related('album', 'album__artist').order_by('-album__release_date', '-play_count')[:15]
+            ).select_related('album', 'album__artist').prefetch_related('featured_artists').order_by('-album__release_date', '-play_count')[:15]
         else:
             favorite_genres = SongPlay.objects.filter(user=request.user).values_list(
                 'song__album__artist__genre', flat=True
@@ -143,11 +206,11 @@ def get_home_page_data(request, seed):
             if favorite_genres:
                 followed_artists_songs = Song.objects.filter(
                     album__artist__genre__id__in=favorite_genres
-                ).select_related('album', 'album__artist').exclude(
+                ).select_related('album', 'album__artist').prefetch_related('featured_artists').exclude(
                     individual_plays__user=request.user
                 ).order_by('?')[:15]
             else:
-                followed_artists_songs = Song.objects.all().select_related('album', 'album__artist').order_by('-play_count', '?')[:15]
+                followed_artists_songs = Song.objects.all().select_related('album', 'album__artist').prefetch_related('featured_artists').order_by('-play_count', '?')[:15]
 
         followed_artists_songs = list(followed_artists_songs)
         for i, s in enumerate(followed_artists_songs):
@@ -155,6 +218,22 @@ def get_home_page_data(request, seed):
         
         liked_song_ids = list(profile.liked_songs.values_list('id', flat=True))
         liked_album_ids = list(profile.liked_albums.values_list('id', flat=True))
+
+    album_duration_subquery = Song.objects.filter(
+        album=OuterRef('pk')
+    ).values('album').annotate(
+        total=Sum('duration_sec')
+    ).values('total')
+
+    featured_album = Album.objects.select_related('artist').annotate(
+        total_duration_db=Subquery(album_duration_subquery),
+        songs_count=Count('songs', distinct=True)
+    ).order_by('-release_date').first()
+
+    latest_albums = Album.objects.select_related('artist').annotate(
+        total_duration_db=Subquery(album_duration_subquery),
+        songs_count=Count('songs', distinct=True)
+    ).order_by('-release_date')[1:7]
 
     return {
         'top_songs': top_songs,
@@ -187,10 +266,34 @@ def get_home_page_data(request, seed):
         'community_playlists': community_playlists,
         'queue_songs': list(top_songs[:30]) + list(discovery_songs),
         'chart_period': "tygodnia" if period_of_days == 7 else "miesiąca",
-        'featured_album': Album.objects.select_related('artist').order_by('-release_date').first(),
-        'latest_albums': Album.objects.select_related('artist').order_by('-release_date')[1:7],
+        'featured_album': featured_album,
+        'latest_albums': latest_albums,
         'genres': Genre.objects.order_by('?'),
         'followed_artists_songs': followed_artists_songs,
         'liked_song_ids': liked_song_ids,
         'liked_album_ids': liked_album_ids,
     }
+
+def get_discovery_songs(params):
+    """
+    Zwraca przefiltrowany zestaw utworów do trybu odkrywania.
+    """
+    genre_slugs = params.getlist('genre')
+    year_from = params.get('year_from')
+    year_to = params.get('year_to')
+    
+    queryset = Song.objects.select_related('album', 'album__artist', 'album__artist__genre').prefetch_related('featured_artists').annotate(
+        artist_followers_count=Count('album__artist__followers', distinct=True)
+    )
+    
+    # Filtrowanie po gatunkach
+    if genre_slugs and 'all' not in genre_slugs:
+        queryset = queryset.filter(album__artist__genre__slug__in=genre_slugs)
+    
+    # Filtrowanie po latach
+    if year_from:
+        queryset = queryset.filter(album__release_date__year__gte=year_from)
+    if year_to:
+        queryset = queryset.filter(album__release_date__year__lte=year_to)
+        
+    return queryset.order_by('?')[:15]

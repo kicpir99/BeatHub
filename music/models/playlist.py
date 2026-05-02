@@ -1,8 +1,9 @@
 import random
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, OuterRef, Subquery
 from django.utils import timezone
+from ..validators import validate_no_profanity
 from datetime import timedelta
 from .base import BaseModel
 from .catalog import Song
@@ -10,13 +11,23 @@ from .catalog import Song
 class PlaylistQuerySet(models.QuerySet):
     def trending(self, days=7):
         cut_off = timezone.now() - timedelta(days=days)
+        
+        duration_subquery = Song.objects.filter(
+            playlists=OuterRef('pk')
+        ).values('playlists').annotate(
+            total=Sum('duration_sec')
+        ).values('total')
+
         return self.filter(
             is_public=True,
             playlist_plays__played_at__gte=cut_off
-        ).select_related('owner__profile').prefetch_related(
+        ).select_related('owner', 'owner__profile').prefetch_related(
             'playlistposition_set__song__album__artist'
         ).annotate(
-            recent_plays_count=Count('playlist_plays__user', distinct=True)
+            recent_plays_count=Count('playlist_plays__user', distinct=True),
+            total_duration_db=Subquery(duration_subquery),
+            songs_count=Count('songs', distinct=True),
+            followers_count=Count('followed_by', distinct=True)
         ).order_by('-recent_plays_count')
 
 class PlaylistManager(models.Manager):
@@ -35,11 +46,23 @@ class Playlist(BaseModel):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='playlists', verbose_name="Właściciel")
     songs = models.ManyToManyField(Song, through='PlaylistPosition', related_name='playlists', verbose_name="Piosenki")
     is_public = models.BooleanField(default=False, verbose_name='Publiczna')
+    is_discovery = models.BooleanField(default=False, verbose_name='Playlista odkryć')
 
     objects = PlaylistManager()
 
+    def clean(self):
+        super().clean()
+        # Sprawdzamy wulgaryzmy tylko dla playlist publicznych
+        if self.is_public:
+            if self.name:
+                validate_no_profanity(self.name)
+            if self.description:
+                validate_no_profanity(self.description)
+
     def get_total_duration_sec(self):
         """Zwraca sumę sekund wszystkich piosenek na playliście."""
+        if hasattr(self, 'total_duration_db'):
+            return self.total_duration_db
         return self.songs.aggregate(total=Sum('duration_sec'))['total'] or 0
     
     def get_total_duration_display(self):
@@ -57,7 +80,11 @@ class Playlist(BaseModel):
         Pobiera okładki do kolarza 2x2. 
         """
         seed = getattr(self, 'cover_seed', None)
-        positions = self.playlistposition_set.select_related('song__album').all()
+        if hasattr(self, '_prefetched_objects_cache') and 'playlistposition_set' in self._prefetched_objects_cache:
+            positions = self._prefetched_objects_cache['playlistposition_set']
+        else:
+            positions = self.playlistposition_set.select_related('song__album').all()
+        
         covers = []
         seen_urls = set()
         
@@ -116,10 +143,23 @@ class FollowedPlaylist(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and self.order == 0:
-            last = FollowedPlaylist.objects.filter(profile=self.profile).order_by('-order').first()
-            if last:
-                self.order = last.order + 1
-        super().save(*args, **kwargs)
+            from django.db import transaction
+            from django.db.models import Max
+            from django.db.models.functions import Coalesce
+            from .profile import Profile
+
+            with transaction.atomic():
+                Profile.objects.select_for_update().get(pk=self.profile_id)
+                
+                last_order = FollowedPlaylist.objects.filter(
+                    profile=self.profile
+                ).aggregate(
+                    max_order=Coalesce(Max('order'), 0)
+                )['max_order']
+                self.order = last_order + 1
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.profile.user.username} obserwuje {self.playlist.name} (poz. {self.order})"

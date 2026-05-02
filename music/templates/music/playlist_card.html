@@ -1,7 +1,6 @@
-{% load image_tags %}
 <div id="playlist-card-{{ playlist.id }}" 
      data-card-link="{% url 'music:playlist_detail' playlist.id %}"
-     class="playlist-card-nav flex flex-col self-start w-full group/card relative cursor-pointer transition-all duration-300 active:scale-[0.98] hover:z-50">
+     class="playlist-card-nav flex flex-col self-start w-full group/card relative cursor-pointer transition-all duration-300 active:scale-[0.98] hover:z-30">
     
     <div class="playing-badge absolute -top-2 -right-2 z-50 bg-primary text-background-main px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest hidden items-center gap-2 shadow-2xl border-2 border-background-main animate-bounce">
         <div class="flex gap-0.5 items-end h-2.5">
@@ -12,10 +11,11 @@
         Grasz teraz
     </div>
 
-    <div class="bg-background-card p-5 rounded-[2.5rem] border border-border-main hover:bg-background-element transition-all flex flex-col relative w-full shadow-sm hover:shadow-md">
+    <div class="bg-background-card p-5 rounded-[2.5rem] border border-border-main hover:bg-background-element transition-all flex flex-col relative w-full shadow-sm hover:shadow-md" style="position:relative">
         
-        <div class="absolute top-6 right-6 z-20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
-            <button data-dropdown-target="playlist-dropdown-{{ playlist.id }}" 
+        {% if not playlist.is_discovery %}
+        <div class="absolute top-6 right-6 z-20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" style="position:absolute;top:1.5rem;right:1.5rem;z-index:20">
+            <button onclick="event.preventDefault(); event.stopPropagation(); BeatHub.UI.toggleDropdown(event, 'playlist-dropdown-{{ playlist.id }}');" 
                     class="dropdown-toggle-btn p-2 bg-background-glass hover:bg-background-element rounded-full text-text-main backdrop-blur-md transition-all shadow-lg focus:outline-none border border-border-main">
                 <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
@@ -65,23 +65,30 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <div class="aspect-square rounded-2xl overflow-hidden mb-5 shadow-2xl relative bg-background-element border border-border-light shadow-inner">
-            {% with covers=playlist.get_top_covers %}
-                {% if covers|length == 4 %}
-                    <div class="grid grid-cols-2 w-full h-full opacity-70 group-hover/card:opacity-100 transition-opacity duration-700">
-                        {% for cover_url in covers %}
-                            <img src="{{ cover_url|thumbnail:'300x300' }}" class="w-full h-full object-cover">
-                        {% endfor %}
-                    </div>
-                {% elif covers|length > 0 %}
-                    <img src="{{ covers.0|thumbnail:'300x300' }}" class="w-full h-full object-cover opacity-70 group-hover/card:opacity-100 transition-all duration-700">
-                {% else %}
-                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-black">
-                        <svg class="w-16 h-16 text-gray-700" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V9h2v7zm4 0h-2V7h2v9z"/></svg>
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {% if playlist.is_discovery %}
+                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fuchsia-600/40 to-indigo-600/40 opacity-90 group-hover/card:opacity-100 transition-opacity duration-700">
+                    <span class="text-7xl drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] opacity-90 group-hover/card:scale-110 transition-transform duration-500">🪐</span>
+                </div>
+            {% else %}
+                {% with covers=playlist.get_top_covers %}
+                    {% if covers|length == 4 %}
+                        <div class="grid grid-cols-2 w-full h-full opacity-70 group-hover/card:opacity-100 transition-opacity duration-700">
+                            {% for cover_url in covers %}
+                                <img src="{{ cover_url }}" class="w-full h-full object-cover">
+                            {% endfor %}
+                        </div>
+                    {% elif covers|length > 0 %}
+                        <img src="{{ covers.0 }}" class="w-full h-full object-cover opacity-70 group-hover/card:opacity-100 transition-all duration-700">
+                    {% else %}
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-black/80">
+                            <svg class="w-16 h-16 text-emerald-500/40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
 
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div id="play-btn-{{ playlist.id }}" 

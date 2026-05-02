@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'music',
+    'imagekit',
     'django_extensions',
 ]   
 
@@ -126,6 +127,15 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cache configuration
+# Using LocMemCache for development. For production, consider using Redis.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 LOGIN_REDIRECT_URL = 'music:home'
 LOGOUT_REDIRECT_URL = 'music:home'

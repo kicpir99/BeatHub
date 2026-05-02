@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load image_tags %}
 
 {% block title %}Witaj w BeatHub - Poczuj rytm{% endblock %}
 
@@ -23,7 +22,6 @@
 
     {% include 'music/partials/home_trending_artist.html' %}
 
-    <!-- Sekcja Najnowsze wydania -->
     <section>
         <div class="flex justify-between items-end mb-8">
             <h2 class="text-3xl font-black text-text-main">Najnowsze wydania</h2>
@@ -36,7 +34,6 @@
         </div>
     </section>
 
-    <!-- Sekcja Top Artyści -->
     {% if top_artists %}
     <section>
         <h2 class="text-3xl font-black text-text-main tracking-tight mb-8">Top Artyści tygodnia</h2>
@@ -44,7 +41,7 @@
             {% for artist in top_artists %}
             <a href="{% url 'music:artist_detail' artist.slug %}" class="bg-background-card p-6 rounded-[2.5rem] border border-border-main hover:bg-background-element transition-all group text-center shadow-sm hover:shadow-md">
                 <div class="relative aspect-square rounded-full overflow-hidden mb-4 shadow-xl border-2 border-transparent group-hover:border-primary transition-all">
-                    <img src="{% if artist.photo %}{{ artist.photo|thumbnail:'200x200' }}{% else %}{% static 'images/default_artist.png' %}{% endif %}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="{{ artist.nickname }}">
+                    <img src="{% if artist.photo %}{{ artist.photo.url }}{% else %}{% static 'images/default_artist.png' %}{% endif %}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="{{ artist.nickname }}">
                 </div>
                 <div class="text-base font-bold text-text-main truncate group-hover:text-primary transition-colors">{{ artist.nickname }}</div>
                 <div class="text-xs text-text-muted uppercase tracking-widest">{{ artist.genre.name }}</div>
@@ -54,7 +51,6 @@
     </section>
     {% endif %}
 
-    <!-- Sekcja Top Lista -->
     <section>
         <div class="flex items-center justify-between mb-8">
             <div><h2 class="text-3xl font-black text-text-main">Top tygodnia</h2><p class="text-text-secondary text-sm mt-1">Odkryj hity BeatHub</p></div>

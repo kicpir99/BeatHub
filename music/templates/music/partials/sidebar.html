@@ -1,0 +1,92 @@
+{% load static %}
+<aside id="main-sidebar" class="hidden lg:flex w-24 hover:w-52 flex-col bg-background-glass border-r border-border-main backdrop-blur-xl shrink-0 z-50 group overflow-hidden transition-all duration-300 shadow-xl">
+    <div class="h-20 flex items-center overflow-hidden">
+        <a href="{% url 'music:home' %}" class="flex items-center px-6 text-xl font-black text-text-main hover:text-primary transition-colors">
+            <div class="w-6 flex justify-center shrink-0 relative">
+                B
+                <span class="absolute left-[calc(50%+6px)] opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">eat<span class="text-primary">Hub</span></span>
+            </div>
+        </a>
+    </div>
+    
+    <nav class="flex-1 space-y-1">
+        <div class="h-10 flex items-center justify-center group-hover:justify-start">
+            <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest hidden group-hover:block px-6 transition-all">Menu</div>
+            <div class="h-px w-6 bg-border-main group-hover:hidden transition-all"></div>
+        </div>
+
+        <a href="{% url 'music:home' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-primary transition-colors">
+                {% include "music/partials/icons.html" with icon="home" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Strona główna</span>
+        </a>
+
+        <a href="{% url 'music:album_list' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-primary transition-colors">
+                {% include "music/partials/icons.html" with icon="albums" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Albumy</span>
+        </a>
+
+        <a href="{% url 'music:community_playlists' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-primary transition-colors">
+                {% include "music/partials/icons.html" with icon="explore" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Eksploruj</span>
+        </a>
+
+        <a href="{% url 'music:discovery' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-amber-500 transition-colors">
+                {% include "music/partials/icons.html" with icon="lightning" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Odkrywaj</span>
+        </a>
+
+        <a href="{% url 'music:user_search' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-sky-400 transition-colors">
+                {% include "music/partials/icons.html" with icon="user-search" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Szukaj osób</span>
+        </a>
+
+        {% if user.is_authenticated %}
+        <div class="h-10 flex items-center justify-center group-hover:justify-start pt-4">
+            <div class="text-[10px] font-bold text-text-muted uppercase tracking-widest hidden group-hover:block px-6 transition-all">Biblioteka</div>
+            <div class="h-px w-6 bg-border-main group-hover:hidden transition-all"></div>
+        </div>
+
+        <a href="{% url 'music:following_list' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-blue-500 transition-colors">
+                {% include "music/partials/icons.html" with icon="users" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Twoi Znajomi</span>
+        </a>
+
+        <a href="{% url 'music:liked_songs' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-rose-500 transition-colors">
+                {% include "music/partials/icons.html" with icon="like" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Polubione</span>
+        </a>
+
+        <a href="{% url 'music:playlist_list' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-indigo-400 transition-colors">
+                {% include "music/partials/icons.html" with icon="playlists" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Playlisty</span>
+        </a>
+
+        <a href="{% url 'music:followed_playlists' %}" class="flex items-center gap-4 px-6 py-3 text-text-secondary hover:text-text-main hover:bg-background-element/50 rounded-xl transition-all">
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-purple-400 transition-colors">
+                {% include "music/partials/icons.html" with icon="bookmark" classes="w-6 h-6" %}
+            </div>
+            <span class="text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap overflow-hidden">Obserwowane</span>
+        </a>
+        {% endif %}
+    </nav>
+    <div class="px-6 border-t border-border-main text-center flex justify-center overflow-hidden h-14 shrink-0 items-center">
+        <span class="w-6 flex justify-center text-[10px] text-text-muted font-black group-hover:hidden">©</span>
+        <span class="text-[10px] text-text-muted uppercase font-black tracking-widest hidden group-hover:inline opacity-0 group-hover:opacity-100 transition-opacity">© 2026 BeatHub</span>
+    </div>
+</aside>

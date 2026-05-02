@@ -21,14 +21,16 @@
     /* Logika ikon Play/Pause/Equalizer */
     .song-row .play-icon, .song-row .pause-icon, .song-row .equalyzer { display: none; }
     .song-row.is-playing:not(:hover) .equalyzer { display: flex; }
-    
-    .song-row:hover .play-icon { display: block; opacity: 1; }
-    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
-    .song-row.is-playing:hover .play-icon { display: none; }
     .song-row.is-current:not(.is-playing):not(:hover) .play-icon { display: block; color: var(--primary); opacity: 1; }
+    .song-row:hover .equalyzer { display: none !important; }
+    .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
+    .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+    
+    .song-row .cover-overlay { opacity: 0; }
+    .song-row:hover .cover-overlay, .song-row.is-current .cover-overlay { opacity: 1 !important; }
 
     /* ANIMACJA EQUALIZERA */
-    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; margin: 0 auto; }
+    .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; }
     .equalyzer-bar { width: 3px; background-color: var(--primary); border-radius: 1px; animation: up-and-down 0.5s infinite ease-in-out; }
     .equalyzer-bar:nth-child(1) { animation-duration: 0.4s; }
     .equalyzer-bar:nth-child(2) { animation-duration: 0.7s; }
@@ -92,6 +94,13 @@
                         <option value="-likes_count" {% if current_sort == '-likes_count' %}selected{% endif %}>Najbardziej lubiane</option>
                         <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Tytuł (A-Z)</option>
                         <option value="-title" {% if current_sort == '-title' %}selected{% endif %}>Tytuł (Z-A)</option>
+                        <option value="album" hidden {% if current_sort == 'album' %}selected{% endif %}></option>
+                        <option value="-album" hidden {% if current_sort == '-album' %}selected{% endif %}></option>
+                        <option value="year" hidden {% if current_sort == 'year' %}selected{% endif %}></option>
+                        <option value="-year" hidden {% if current_sort == '-year' %}selected{% endif %}></option>
+                        <option value="id" hidden {% if current_sort == 'id' %}selected{% endif %}></option>
+                        <option value="-id" hidden {% if current_sort == '-id' %}selected{% endif %}></option>
+                        <option value="play_count" hidden {% if current_sort == 'play_count' %}selected{% endif %}></option>
                     </select>
                 </div>
 
@@ -336,7 +345,14 @@
             const selector = document.getElementById('sort-selector');
             if (selector) {
                 selector.value = sortValue;
-                window.fetchFilteredResults(1);
+                selector.dispatchEvent(new Event('change'));
+            }
+        };
+        window.toggleSort = s => {
+            const selector = document.getElementById('sort-selector');
+            if (selector) {
+                selector.value = (selector.value === s) ? '-' + s : s;
+                selector.dispatchEvent(new Event('change'));
             }
         };
         window.quickAddYear = year => { 
@@ -395,7 +411,7 @@
                 const html = await resp.text(), parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html');
                 const newR = doc.getElementById('album-list-results'); if (newR) resC.innerHTML = newR.innerHTML;
                 const newD = doc.getElementById('page-queue-data'); if (newD) document.getElementById('page-queue-data').textContent = newD.textContent;
-                updateQueueFromJSON(); history.replaceState({ path: url }, '', url); window.updateDynamicUI(query); if(window.syncListIcons) window.syncListIcons();
+                updateQueueFromJSON(); history.replaceState({ path: url }, '', url); window.updateDynamicUI(query); if(BeatHub && BeatHub.Player) BeatHub.Player.syncListIcons();
             } catch (e) { console.error('Błąd AJAX:', e); } 
             finally { resC.style.opacity = '1'; resC.style.pointerEvents = 'auto'; }
         };

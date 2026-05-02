@@ -285,7 +285,6 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <!-- Karta Podsumowania Gatunków -->
             <div class="lg:col-span-1 bg-background-card rounded-3xl p-8 border border-border-main flex flex-col items-center text-center space-y-6 backdrop-blur-sm relative overflow-hidden group">
                 <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                 <div class="relative">
@@ -297,7 +296,6 @@
                 <div class="relative w-40 h-40 mx-auto mb-2">
                     <canvas id="moodChart"></canvas>
                 </div>
-                <!-- Legenda i Pasek (Dynamiczne) -->
                 <div id="moodLegend" class="w-full flex flex-wrap justify-center gap-3 mb-6"></div>
                 <div class="w-full relative px-2 mb-6">
                     <div id="moodBar" class="h-2 w-full rounded-full overflow-hidden flex bg-background-element"></div>
@@ -308,7 +306,6 @@
                 </div>
             </div>
 
-            <!-- Karta Aktywności -->
             <div class="lg:col-span-2 bg-background-card rounded-3xl p-8 border border-border-main backdrop-blur-sm">
                 <div class="flex items-center justify-between mb-6">
                     <div class="text-sm font-bold text-text-muted uppercase tracking-widest">Aktywność Słuchania</div>
@@ -320,16 +317,72 @@
             </div>
         </div>
     </div>
-
+    <div id="color-indicator" style="color: var(--primary); background-color: var(--background-main); border-color: var(--border-main); display: none;"></div>
+    
     <script>
-        // Przechowywanie instancji w window, aby Turbo ich nie duplikowało i można było je niszczyć
-        window.moodChartInstance = window.moodChartInstance || null;
-        window.activityChartInstance = window.activityChartInstance || null;
+        // Helper to get CSS variables
+        function getCSSVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // Helper to handle color with alpha transparency
+        function colorWithAlpha(color, alpha) {
+            if (!color) return `rgba(16, 185, 129, ${alpha})`;
+            if (color.startsWith('rgba')) return color;
+            if (color.startsWith('rgb')) {
+                return color.replace('rgb', 'rgba').replace(')', `, ${alpha})`);
+            }
+            if (color.startsWith('#')) {
+                const r = parseInt(color.slice(1, 3), 16);
+                const g = parseInt(color.slice(3, 5), 16);
+                const b = parseInt(color.slice(5, 7), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return color;
+        }
+
+        function getChartTheme() {
+            const indicator = document.getElementById('color-indicator');
+            const style = indicator ? getComputedStyle(indicator) : null;
+            const isLight = document.documentElement.classList.contains('light');
+            
+            // Vibrant green fallback (Spotify-like)
+            const fallbackPrimary = '#1db954';
+            let primary = style ? style.color : getCSSVar('--primary');
+            
+            // Detect if the primary color is too dark/black or empty
+            const isTooDark = (color) => {
+                if (!color) return true;
+                if (color === 'rgb(0, 0, 0)' || color === '#000000' || color === 'black') return true;
+                // Check for very dark colors (e.g., rgb(1,1,1), rgb(15,15,15), etc.)
+                const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                if (match) {
+                    const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
+                    return (r + g + b) < 30; // Very dark
+                }
+                return false;
+            };
+
+            if (isTooDark(primary)) {
+                primary = fallbackPrimary;
+            }
+
+            return {
+                text: getCSSVar('--text-main') || (isLight ? '#1f2937' : '#f3f4f6'),
+                muted: getCSSVar('--text-muted') || (isLight ? '#6b7280' : '#9ca3af'),
+                border: style ? style.borderColor : (getCSSVar('--border-main') || (isLight ? '#e5e7eb' : '#374151')),
+                primary: primary,
+                background: style ? style.backgroundColor : (getCSSVar('--background-main') || (isLight ? '#f9fafb' : '#0f172a')),
+                grid: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'
+            };
+        }
 
         function initCharts(moodLabels, moodData, activityLabels, activityData) {
             // Zawsze czyść stare instancje na początku
             if (window.moodChartInstance) { window.moodChartInstance.destroy(); window.moodChartInstance = null; }
             if (window.activityChartInstance) { window.activityChartInstance.destroy(); window.activityChartInstance = null; }
+
+            const theme = getChartTheme();
 
             var moodCtx = document.getElementById('moodChart');
             var legendContainer = document.getElementById('moodLegend');
@@ -340,7 +393,7 @@
             if (barContainer) barContainer.innerHTML = '';
 
             if (moodCtx && moodLabels && moodLabels.length > 0) {
-                var moodColors = ['var(--primary)', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#a855f7'];
+                var moodColors = [theme.primary, '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#a855f7'];
                 
                 window.moodChartInstance = new Chart(moodCtx, {
                     type: 'doughnut',
@@ -430,6 +483,11 @@
 
             var activityCtx = document.getElementById('activityChart');
             if (activityCtx && activityLabels && activityLabels.length > 0) {
+                var ctx = activityCtx.getContext('2d');
+                var gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, colorWithAlpha(theme.primary, 0.3));
+                gradient.addColorStop(1, colorWithAlpha(theme.primary, 0));
+
                 window.activityChartInstance = new Chart(activityCtx, {
                     type: 'line',
                     data: {
@@ -437,13 +495,18 @@
                         datasets: [{
                             label: 'Odtworzenia',
                             data: activityData,
-                            borderColor: 'var(--primary)',
-                            backgroundColor: 'var(--primary-glow-light)',
+                            borderColor: theme.primary,
+                            backgroundColor: gradient,
                             fill: true,
                             tension: 0.4,
-                            pointBackgroundColor: 'var(--primary)',
+                            pointBackgroundColor: theme.primary,
+                            pointBorderColor: theme.background,
+                            pointBorderWidth: 2,
                             pointRadius: 4,
-                            pointHoverRadius: 6
+                            pointHoverRadius: 6,
+                            pointHoverBackgroundColor: theme.primary,
+                            pointHoverBorderColor: '#fff',
+                            pointHoverBorderWidth: 2
                         }]
                     },
                     options: {
@@ -451,11 +514,30 @@
                         maintainAspectRatio: false,
                         plugins: { 
                             legend: { display: false },
-                            tooltip: { enabled: true }
+                            tooltip: { 
+                                enabled: true,
+                                backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                                titleFont: { size: 13, weight: 'bold' },
+                                bodyFont: { size: 12 },
+                                padding: 12,
+                                cornerRadius: 10,
+                                displayColors: false
+                            }
                         },
                         scales: {
-                            y: { beginAtZero: true, grid: { color: 'var(--border-main)' }, ticks: { color: 'var(--text-muted)', stepSize: 1 } },
-                            x: { grid: { display: false }, ticks: { color: 'var(--text-muted)' } }
+                            y: { 
+                                beginAtZero: true, 
+                                grid: { color: theme.grid, drawBorder: false }, 
+                                ticks: { color: theme.muted, stepSize: 1, padding: 10 } 
+                            },
+                            x: { 
+                                grid: { display: false }, 
+                                ticks: { color: theme.muted, padding: 10 } 
+                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
                         }
                     }
                 });
@@ -526,7 +608,7 @@
         }
 
         function runInit() {
-            requestAnimationFrame(() => {
+            setTimeout(() => {
                 if (document.getElementById('moodChart')) {
                     initCharts(
                         {{ stats.mood_labels|safe }},
@@ -535,7 +617,7 @@
                         {{ stats.activity_data|safe }}
                     );
                 }
-            });
+            }, 100);
         }
 
         // Turbo wykonuje skrypty w body przy każdym przejściu, więc wywołujemy bezpośrednio

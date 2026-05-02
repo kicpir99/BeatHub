@@ -1,0 +1,79 @@
+<!-- Queue Panel -->
+<div id="queue-panel" data-turbo-permanent="music-queue" class="fixed bottom-28 right-6 w-96 bg-background-glass backdrop-blur-xl border border-border-main rounded-3xl shadow-2xl z-[120] hidden opacity-0 translate-y-4 transition-all duration-300 flex flex-col max-h-[70vh]">
+    <div class="p-6 border-b border-border-main flex justify-between items-center">
+        <div><h3 class="text-xl font-bold text-text-main">Kolejka</h3><p class="text-[10px] text-text-muted mt-1 uppercase tracking-wider">Zmień kolejność przeciągając</p></div>
+        <div class="flex items-center gap-1">
+            <button onclick="clearQueue()" class="text-[10px] font-bold text-red-500 hover:text-red-400 uppercase tracking-widest px-3 py-2 rounded-lg hover:bg-red-500/10">Wyczyść</button>
+            <div id="queue-drag-handle" class="text-text-muted hover:text-primary p-2 cursor-move"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg></div>
+            <button onclick="toggleQueue()" class="text-text-muted hover:text-text-main p-2" aria-label="Zamknij kolejkę">{% include "music/partials/icons.html" with icon="close" classes="w-6 h-6" %}</button>
+        </div>
+    </div>
+    <div id="queue-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar"></div>
+</div>
+
+<!-- Global Player -->
+<div id="global-player" data-turbo-permanent="music-player" class="fixed bottom-0 left-0 right-0 bg-background-glass backdrop-blur-xl border-t border-border-main z-[100] transform translate-y-full transition-transform duration-500 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+    <canvas id="visualizer" class="absolute inset-0 w-full h-full pointer-events-none opacity-30"></canvas>
+    <audio id="audio-element" preload="auto"></audio>
+    <div class="w-full px-8 md:px-16 h-24 flex items-center justify-between gap-12 relative z-10">
+        <div class="flex items-center gap-6 w-1/4 md:w-1/3 min-w-0">
+            <a id="player-album-link" href="#" class="shrink-0"><img id="player-cover" src="" class="w-10 h-10 md:w-14 md:h-14 rounded-lg object-cover hidden shadow-lg hover:scale-105 transition-transform"></a>
+            <div class="overflow-hidden">
+                <a id="player-title-link" href="#" class="text-text-main font-bold text-xs md:text-sm truncate block hover:text-primary transition-colors"><span id="player-title">Wybierz utwór</span></a>
+                <a id="player-artist-link" href="#" class="text-text-secondary text-[10px] md:text-xs truncate block hover:text-text-main transition-colors"><span id="player-artist">BeatHub</span></a>
+            </div>
+            <div class="hidden sm:flex items-center gap-1 ml-2 shrink-0">
+                <button id="player-like-btn" onclick="handlePlayerLike(event)" class="text-text-muted hover:text-red-500 p-2 transition-all hover:scale-110" title="Polub utwór" aria-label="Polub utwór">
+                    {% include "music/partials/icons.html" with icon="like" classes="w-5 h-5 transition-colors" %}
+                </button>
+                <button onclick="handlePlayerPlaylist(event)" class="text-text-muted hover:text-primary p-2 transition-all hover:scale-110" title="Dodaj do playlisty" aria-label="Dodaj do playlisty">
+                    {% include "music/partials/icons.html" with icon="plus" classes="w-5 h-5" %}
+                </button>
+                <button id="player-share-btn" class="text-text-muted hover:text-blue-500 p-2 transition-all hover:scale-110" title="Udostępnij" aria-label="Udostępnij utwór">
+                    {% include "music/partials/icons.html" with icon="share" classes="w-5 h-5" %}
+                </button>
+            </div>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 max-w-3xl">
+            <div class="flex items-center gap-6 md:gap-10 mb-2">
+                <button id="shuffle-btn" onclick="toggleShuffle()" class="hidden md:block text-text-secondary hover:text-primary transition-colors" title="Shuffle" aria-label="Przełącz odtwarzanie losowe">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.44 20 9.5V4h-5.5zm.38 10.17l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.08-3.07z"></path></svg>
+                </button>
+                <button onclick="playPrev()" class="text-text-secondary hover:text-text-main" aria-label="Poprzedni utwór">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
+                </button>
+                <button onclick="toggleGlobalPlay()" class="w-10 h-10 flex items-center justify-center bg-text-main text-background-main rounded-full hover:scale-105 shadow-lg shrink-0" aria-label="Odtwarzaj / Pauza">
+                    <svg id="icon-play" class="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                    <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+                </button>
+                <button onclick="playNext()" class="text-text-secondary hover:text-text-main" aria-label="Następny utwór">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
+                </button>
+                <button id="repeat-btn" onclick="toggleRepeat()" class="hidden md:block text-text-secondary hover:text-primary transition-colors" title="Repeat" aria-label="Przełącz powtarzanie">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"></path></svg>
+                </button>
+            </div>
+            <div class="flex items-center gap-4 w-full px-4">
+                <span id="time-current" class="text-[10px] text-text-muted font-mono w-10 text-right">0:00</span>
+                <div class="flex-1 h-1.5 bg-background-element rounded-full relative cursor-pointer group" id="progress-container">
+                    <div id="progress-bar" class="h-full bg-primary rounded-full w-0 relative">
+                        <div id="progress-dot" class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3.5 h-3.5 bg-text-main rounded-full opacity-0 group-hover:opacity-100 group-[.is-dragging]:opacity-100 shadow-md transition-all duration-200 z-20"></div>
+                    </div>
+                </div>
+                <span id="time-total" class="text-[10px] text-text-muted font-mono w-10 text-left">0:00</span>
+            </div>
+        </div>
+        <div class="flex items-center justify-end gap-4 w-1/4 md:w-1/3">
+            <button onclick="toggleQueue()" class="text-text-secondary hover:text-primary transition-colors p-2 rounded-lg hover:bg-background-card" title="Kolejka" aria-label="Otwórz kolejkę">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"></path></svg>
+            </button>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleMute()" class="text-text-secondary hover:text-text-main transition-colors" aria-label="Wycisz / Wyłącz wyciszenie">
+                    <svg id="vol-icon-high" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                    <svg id="vol-icon-mute" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                </button>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5" class="w-24 md:w-32 accent-primary h-1 bg-background-element rounded-full appearance-none cursor-pointer">
+            </div>
+        </div>
+    </div>
+</div>

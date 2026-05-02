@@ -1,10 +1,12 @@
 import random
 from django.db import models
 from django.utils.text import slugify
-from PIL import Image
-from mutagen.mp3 import MP3
-from mutagen import File as MutagenFile
 from django.db.models import Sum, Count
+from django.utils import timezone
+from datetime import timedelta
+from imagekit.models import ProcessedImageField
+from imagekit.processors import ResizeToFit
+from autoslug import AutoSlugField
 from .base import BaseModel
 
 class Genre(BaseModel):
@@ -13,16 +15,12 @@ class Genre(BaseModel):
     Automatycznie generuje slug z nazwy po utworzeniu.
     """
     name = models.CharField(max_length=100, unique=True, verbose_name="Nazwa gatunku")
-    image = models.ImageField(upload_to='genres/', null=True, blank=True)
-    slug = models.SlugField(max_length=100, unique=True, blank=True)
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
-        if self.image:
-            from ..services.music_service import resize_image
-            resize_image(self.image.path, (800, 800))
+    image = ProcessedImageField(upload_to='genres/',
+                                processors=[ResizeToFit(800, 800)],
+                                format='JPEG',
+                                options={'quality': 85},
+                                null=True, blank=True)
+    slug = AutoSlugField(populate_from='name', unique=True)
 
     def __str__(self):
         return self.name
@@ -48,9 +46,6 @@ class Genre(BaseModel):
         verbose_name = "Gatunek"
         verbose_name_plural = "Gatunki"
 
-from django.utils import timezone
-from datetime import timedelta
-
 class ArtistQuerySet(models.QuerySet):
     def top_by_plays(self, days=7, count=6):
         cut_off = timezone.now() - timedelta(days=days)
@@ -72,18 +67,17 @@ class Artist(BaseModel):
     Reprezentuje artystę lub zespół muzyczny.
     """
     nickname = models.CharField(max_length=100, verbose_name="Pseudonim")
-    slug = models.SlugField(max_length=100, unique=True, blank=True)
-    photo = models.ImageField(upload_to='artists/', blank=True, null=True, verbose_name="Zdjęcie")
+    slug = AutoSlugField(populate_from='nickname', unique=True)
+    photo = ProcessedImageField(upload_to='artists/',
+                                 processors=[ResizeToFit(600, 600)],
+                                 format='JPEG',
+                                 options={'quality': 85},
+                                 blank=True, null=True, verbose_name="Zdjęcie")
     genre = models.ForeignKey(Genre, on_delete=models.SET_NULL, null=True, related_name='artists', verbose_name="Gatunek")
     bio = models.TextField(blank=True, verbose_name="Biografia")
     followers = models.ManyToManyField('music.Profile', related_name='followed_artists', blank=True, verbose_name="Obserwujący")
 
     objects = ArtistManager()
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.nickname)
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.nickname
@@ -113,9 +107,13 @@ class Album(BaseModel):
     Reprezentuje album muzyczny wydany przez artystę.
     """
     title = models.CharField(max_length=200, verbose_name="Tytuł albumu")
-    slug = models.SlugField(max_length=200, unique=True, blank=True)
+    slug = AutoSlugField(populate_from='title', unique=True)
     release_date = models.DateField(verbose_name="Data wydania", db_index=True)
-    cover = models.ImageField(upload_to='albums/', blank=True, null=True, verbose_name="Okładka")
+    cover = ProcessedImageField(upload_to='albums/',
+                                 processors=[ResizeToFit(800, 800)],
+                                 format='JPEG',
+                                 options={'quality': 85},
+                                 blank=True, null=True, verbose_name="Okładka")
     artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name='albums', verbose_name="Artysta")
     produced_by = models.CharField(max_length=200, blank=True, null=True, verbose_name="Producent")
     play_count = models.PositiveIntegerField(default=0, verbose_name="Suma odtworzeń albumu", db_index=True)
@@ -124,6 +122,9 @@ class Album(BaseModel):
     objects = AlbumManager()
 
     def get_total_duration_sec(self):
+        """Zwraca sumę sekund wszystkich piosenek na playliście."""
+        if hasattr(self, 'total_duration_db'):
+            return self.total_duration_db
         return self.songs.aggregate(total=Sum('duration_sec'))['total'] or 0
     
     def get_total_duration_display(self):
@@ -134,20 +135,6 @@ class Album(BaseModel):
         if hours > 0:
             return f"{hours} h {minutes} min"
         return f"{minutes} min {seconds:02d} s"
-    
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            base_slug = slugify(self.title)
-            slug = base_slug
-            counter = 1
-            while Album.objects.filter(slug=slug).exists():
-                slug = f"{base_slug}-{counter}"
-                counter += 1 
-            self.slug = slug
-        super().save(*args, **kwargs)
-        if self.cover:
-            from ..services.music_service import resize_image
-            resize_image(self.cover.path, (800, 800))
 
     def __str__(self):
         return f"{self.title} ({self.artist.nickname})"
@@ -187,18 +174,7 @@ class Song(BaseModel):
     objects = SongManager()
 
     def save(self, *args, **kwargs):
-        skip_metadata = kwargs.pop('skip_metadata', False)
         super().save(*args, **kwargs)
-        if not skip_metadata and self.audio_file:
-            from ..services.music_service import update_song_duration
-            new_duration = update_song_duration(self)
-            if new_duration and self.duration_sec != new_duration:
-                Song.objects.filter(pk=self.pk).update(duration_sec=new_duration)
-                self.duration_sec = new_duration
-        else:
-            if not skip_metadata and self.duration_sec != 0:
-                Song.objects.filter(pk=self.pk).update(duration_sec=0)
-                self.duration_sec = 0
                 
     def get_duration_display(self):
         minutes = self.duration_sec // 60

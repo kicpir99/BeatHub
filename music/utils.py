@@ -5,7 +5,6 @@ from django.http import Http404
 from django.core.paginator import EmptyPage
 from better_profanity import profanity
 
-# Konfiguracja cenzury (profanity)
 POLISH_BAD_WORDS = os.path.join(settings.BASE_DIR, 'cenzura.txt')
 
 def load_bad_words():
@@ -14,7 +13,6 @@ def load_bad_words():
             return [line.strip() for line in f if line.strip()]
     return []
 
-# Inicjalizacja cenzury
 profanity.load_censor_words()
 profanity.add_censor_words(load_bad_words())
 
@@ -34,10 +32,9 @@ def apply_cover_seed(playlists, seed):
     if not playlists:
         return
     items = playlists
-    if hasattr(playlists, 'object_list'): # Obsługa Page z Paginatora
+    if hasattr(playlists, 'object_list'):
         items = playlists.object_list
     
-    # Obsługa pojedynczego obiektu
     if not hasattr(items, '__iter__'):
         items = [items]
         

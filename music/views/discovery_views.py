@@ -11,10 +11,11 @@ from django.db.models import Count, Q, F
 from django.utils import timezone
 from django.templatetags.static import static
 
-from ..models import Genre, Song, SongPlay, Artist, Album, Profile, Playlist
+from ..models import Genre, Song, SongPlay, Artist, Album, Profile, Playlist, LikedSong
 from ..utils import update_cover_seed, apply_cover_seed
 
-from ..services.discovery_service import get_home_page_data
+from ..services.discovery_service import get_home_page_data, get_discovery_songs
+from ..decorators import ajax_error_handler
 
 from ..mixins import MusicContextMixin
 
@@ -24,7 +25,6 @@ class HomeView(MusicContextMixin, generic.TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Pobieramy wszystkie dane ze specjalistycznego serwisu
         home_data = get_home_page_data(self.request, context['cover_seed'])
         context.update(home_data)
         
@@ -37,36 +37,21 @@ class DiscoveryView(LoginRequiredMixin, MusicContextMixin, generic.TemplateView)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Obliczanie liczby odkryć na dziś
-        today = timezone.now().date()
-        context['today_discovery_count'] = SongPlay.objects.filter(
-            user=self.request.user,
-            played_at__date=today
-        ).count()
+        # Licznik tylko dla trybu discovery (sesja)
+        today_str = timezone.now().date().isoformat()
+        if self.request.session.get('discovery_today_date') != today_str:
+            self.request.session['discovery_today_count'] = 0
+            self.request.session['discovery_today_date'] = today_str
+            
+        context['today_discovery_count'] = self.request.session.get('discovery_today_count', 0)
         
         return context
 
 @login_required
+@ajax_error_handler(error_msg='Wystąpił błąd podczas pobierania utworów do odkrywania.')
 def get_discovery_songs_ajax(request):
     """Widok AJAX zwracający zestaw utworów do trybu odkrywania."""
-    genre_slugs = request.GET.getlist('genre')
-    year_from = request.GET.get('year_from')
-    year_to = request.GET.get('year_to')
-    
-    queryset = Song.objects.select_related('album', 'album__artist', 'album__artist__genre').prefetch_related('featured_artists')
-    
-    # Filtrowanie po gatunkach
-    if genre_slugs and 'all' not in genre_slugs:
-        queryset = queryset.filter(album__artist__genre__slug__in=genre_slugs)
-    
-    # Filtrowanie po latach
-    if year_from:
-        queryset = queryset.filter(album__release_date__year__gte=year_from)
-    if year_to:
-        queryset = queryset.filter(album__release_date__year__lte=year_to)
-        
-    # Pobieranie 15 losowych utworów
-    songs = queryset.order_by('?')[:15]
+    songs = get_discovery_songs(request.GET)
     
     songs_data = []
     for s in songs:
@@ -77,7 +62,7 @@ def get_discovery_songs_ajax(request):
             'artist_slug': s.album.artist.slug,
             'artist_photo': s.album.artist.photo.url if s.album.artist.photo else static('images/default_artist.png'),
             'artist_genre': s.album.artist.genre.name if s.album.artist.genre else "Inny",
-            'artist_followers': s.album.artist.followers.count(),
+            'artist_followers': s.artist_followers_count,
             'likes_count': s.likes_count,
             'cover': s.album.cover.url if s.album.cover else static('images/default_album.png'),
             'url': s.audio_file.url if s.audio_file else '',
@@ -95,23 +80,33 @@ from ..services.profile_service import handle_discovery_action
 
 @login_required
 @require_POST
+@ajax_error_handler(error_msg='Wystąpił błąd podczas przetwarzania akcji odkrywania.')
 def discovery_action_ajax(request):
     """Obsługuje akcje (polubienie/pominięcie) w trybie odkrywania i przyznaje XP."""
-    try:
-        data = json.loads(request.body)
-        song_id = data.get('song_id')
-        action = data.get('action') # 'like', 'skip', 'undo'
+    data = json.loads(request.body)
+    song_id = data.get('song_id')
+    action = data.get('action') # 'like', 'skip', 'undo'
+    
+    profile = request.user.profile
+    song = get_object_or_404(Song, id=song_id)
+    
+    was_liked = song in profile.liked_songs.all()
+    xp_gain, message, status = handle_discovery_action(profile, song, action)
+    
+    today_str = timezone.now().date().isoformat()
+    if request.session.get('discovery_today_date') != today_str:
+        request.session['discovery_today_count'] = 0
+        request.session['discovery_today_date'] = today_str
         
-        profile = request.user.profile
-        song = get_object_or_404(Song, id=song_id)
-        
-        xp_gain, message, status = handle_discovery_action(profile, song, action)
-        
-        return JsonResponse({
-            'status': status, 
-            'message': message,
-            'xp_gained': xp_gain,
-            'total_xp': profile.xp
-        })
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    if action == 'like' and xp_gain == 10:
+        request.session['discovery_today_count'] = request.session.get('discovery_today_count', 0) + 1
+    elif action == 'undo' and was_liked:
+        request.session['discovery_today_count'] = max(0, request.session.get('discovery_today_count', 0) - 1)
+        request.session.modified = True
+    
+    return JsonResponse({
+        'status': status, 
+        'message': message,
+        'xp_gained': xp_gain,
+        'total_xp': profile.xp
+    })

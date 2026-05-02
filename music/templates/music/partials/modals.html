@@ -1,0 +1,15 @@
+﻿    <template id="playlist-modal-template">
+        <div class="modal-overlay fixed inset-0 z-[150] flex items-center justify-center opacity-0 transition-opacity duration-300">
+            <div class="absolute inset-0 bg-background-main/80 backdrop-blur-md" data-close></div>
+            <div class="modal-content bg-background-surface rounded-[2.5rem] p-8 border border-border-main shadow-2xl relative w-full max-w-md transform scale-95 transition-transform duration-300">
+                <button data-close class="absolute top-6 right-6 text-text-muted hover:text-text-main transition-colors">
+                    {% include "music/partials/icons.html" with icon="close" classes="w-6 h-6" %}
+                </button>
+                
+                <div id="modal-body-content">
+                    <!-- Dynamiczna treĹ›Ä‡ -->
+                </div>
+            </div>
+        </div>
+    </template>
+

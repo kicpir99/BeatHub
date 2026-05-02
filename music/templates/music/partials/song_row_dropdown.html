@@ -1,5 +1,5 @@
 {% load music_filters %}
-<div id="dropdown-{{ row_context }}-{{ song.id }}" class="song-dropdown hidden absolute right-8 {% if forloop.revcounter <= 3 %}bottom-full mb-2{% else %}top-10{% endif %} w-48 bg-background-card/95 backdrop-blur-md rounded-xl shadow-2xl border border-border-main z-50 text-left py-2 transform opacity-0 transition-opacity">
+<div id="dropdown-{{ row_context }}-{{ song.id }}" class="song-dropdown hidden absolute right-8 {% if forloop.revcounter <= 3 %}bottom-full mb-2{% else %}top-10{% endif %} w-48 bg-[#1a1a2e]/98 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 ring-1 ring-white/5 z-50 text-left py-2 transform opacity-0 transition-opacity">
     
     <button data-action="toggle-like" data-song-id="{{ song.id }}" data-is-playlist="{% if row_context == 'playlist' %}true{% else %}false{% endif %}"
             class="w-full text-left px-4 py-2 text-sm hover:bg-background-element flex items-center gap-3 transition-colors text-text-muted hover:text-text-main">
@@ -9,7 +9,7 @@
         {% endwith %}
     </button>
     
-    <div class="border-t border-border-main my-1"></div>
+    <div class="border-t border-white/10 my-1"></div>
 
     {% if row_context == 'playlist' and playlist.owner == request.user %}
         <button data-action="remove-from-playlist" data-pos-id="{{ pos.id }}" data-song-id="{{ song.id }}"

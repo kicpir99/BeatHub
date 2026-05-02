@@ -1,12 +1,11 @@
 {% extends 'base.html' %}
-{% load image_tags %}
 
 {% block title %}Polubione utwory - BeatHub{% endblock %}
 
 {% block content %}
 <style>
     /* Styl Premium dla list utworów */
-    :root {
+    body {
         --primary: #ef4444;
         --primary-hover: #dc2626;
         --primary-glow: rgba(239, 68, 68, 0.4);
@@ -41,6 +40,12 @@
     .song-row:hover .equalyzer { display: none !important; }
     .song-row.is-playing:hover .pause-icon { display: block; opacity: 1; color: var(--primary); }
     .song-row:not(.is-playing):hover .play-icon { display: block; opacity: 1; }
+    
+    /* Zapewniamy widoczność nakładki z obrazkiem gdy piosenka jest włączona */
+    .song-row.is-current .cover-overlay { opacity: 1 !important; }
+
+    /* Wyrównanie w pionie elementów w tabeli */
+    .song-row td { align-items: center; vertical-align: middle; }
 
     /* ANIMACJA FAL (Equalizer) */
     .equalyzer { align-items: flex-end; justify-content: center; gap: 2px; width: 16px; height: 16px; }
@@ -100,7 +105,7 @@
             <span class="text-sm font-bold tracking-widest text-red-400 uppercase mb-2 block">Kolekcja</span>
             <h1 class="text-4xl md:text-7xl font-black text-text-main mb-6 tracking-tighter">Polubione utwory</h1>
             <div class="flex items-center gap-4 text-sm font-medium text-text-secondary mb-8">
-                <img src="{{ user.profile.avatar_url|thumbnail:'64x64' }}" alt="Awatar" class="w-8 h-8 rounded-full border border-border-main object-cover">
+                <img src="{{ user.profile.avatar_url.url }}" alt="Awatar" class="w-8 h-8 rounded-full border border-border-main object-cover">
                 <span class="text-text-main">{{ user.username }} • {{ page_obj.paginator.count }} utworów</span>
             </div>
             <div class="flex flex-col md:flex-row md:items-center gap-4">
@@ -370,7 +375,10 @@
                                         'Content-Type': 'application/json',
                                         'X-CSRFToken': csrfToken,
                                     },
-                                    body: JSON.stringify({ position_ids: positionIds })
+                                    body: JSON.stringify({ 
+                                        position_ids: positionIds,
+                                        start_index: parseInt("{{ page_obj.start_index|default:1 }}")
+                                    })
                                 });
                                 
                                 if (!response.ok) throw new Error('Błąd serwera');
@@ -404,7 +412,10 @@
                                             'Content-Type': 'application/json',
                                             'X-CSRFToken': csrfToken,
                                         },
-                                        body: JSON.stringify({ album_ids: albumIds })
+                                        body: JSON.stringify({ 
+                                            album_ids: albumIds,
+                                            start_index: parseInt("{{ page_a_obj.start_index|default:1 }}")
+                                        })
                                     });
                                     if (!response.ok) throw new Error('Błąd serwera');
                                     const data = await response.json();
