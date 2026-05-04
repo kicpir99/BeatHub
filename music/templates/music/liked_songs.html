@@ -5,13 +5,6 @@
 {% block content %}
 <style>
     /* Styl Premium dla list utworów */
-    body {
-        --primary: #ef4444;
-        --primary-hover: #dc2626;
-        --primary-glow: rgba(239, 68, 68, 0.4);
-        --primary-glow-light: rgba(239, 68, 68, 0.1);
-    }
-
     .song-row { transition: all 0.2s ease; border-bottom: 1px solid var(--border-main); }
     .song-row:hover td { background-color: var(--background-element); }
     .song-row:hover td:first-child { border-top-left-radius: 1rem; border-bottom-left-radius: 1rem; }
@@ -309,7 +302,11 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Nasz niewidoczny znacznik - identyfikator strony polubionych -->
+<div id="liked-songs-identifier" class="hidden"></div>
+
 <script>
+
     window.pageQueue = [
         {% for pos in all_liked_songs %}
         { 

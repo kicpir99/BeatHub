@@ -14,6 +14,12 @@ class CustomLoginView(MusicContextMixin, LoginView):
         messages.success(self.request, f"Witaj, ponownie, {form.get_user().username}!")
         return super().form_valid(form)
 
+    def form_invalid(self, form):
+        messages.error(self.request, "Błędna nazwa użytkownika lub hasło.")
+        response = super().form_invalid(form)
+        response.status_code = 422
+        return response
+
 class CustomLogoutView(MusicContextMixin, LogoutView):
     def dispatch(self, request, *args, **kwargs):
         messages.info(request, "Zostałeś pomyślnie wylogowany. Do zobaczenia!")
@@ -28,6 +34,11 @@ class SignUpView(MusicContextMixin, SuccessMessageMixin, generic.CreateView):
     def form_valid(self, form):
         response = super().form_valid(form)
         login(self.request, self.object)
+        return response
+
+    def form_invalid(self, form):
+        response = super().form_invalid(form)
+        response.status_code = 422
         return response
 
 class AccessDeniedView(MusicContextMixin, generic.TemplateView):

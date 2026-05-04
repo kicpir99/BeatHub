@@ -46,8 +46,12 @@ BeatHub.UI.visitPreservingScroll = function(url) {
     if (scrollContainer) {
         sessionStorage.setItem('scrollPosition', scrollContainer.scrollTop);
     }
-    if (window.Turbo) window.Turbo.visit(url, { action: "replace", scroll: false });
-    else window.location.href = url;
+    if (window.Turbo) {
+        window.Turbo.cache.clear();
+        window.Turbo.visit(url, { action: "replace", scroll: false });
+    } else {
+        window.location.href = url;
+    }
 };
 
 BeatHub.UI.goToPage = (input, paramName = 'page') => {
@@ -239,11 +243,23 @@ BeatHub.UI.updateBulkActionBar = () => {
         bar.classList.remove('hidden');
         
         if (isRed) {
-            if(likeBtn) likeBtn.classList.add('hidden');
-            if(unlikeBtn) unlikeBtn.classList.remove('hidden');
+            if(likeBtn) {
+                likeBtn.classList.add('hidden');
+                likeBtn.classList.remove('flex');
+            }
+            if(unlikeBtn) {
+                unlikeBtn.classList.remove('hidden');
+                unlikeBtn.classList.add('flex');
+            }
         } else {
-            if(likeBtn) likeBtn.classList.remove('hidden');
-            if(unlikeBtn) unlikeBtn.classList.add('hidden');
+            if(likeBtn) {
+                likeBtn.classList.remove('hidden');
+                likeBtn.classList.add('flex');
+            }
+            if(unlikeBtn) {
+                unlikeBtn.classList.remove('hidden');
+                unlikeBtn.classList.add('flex');
+            }
         }
 
         if (window.location.pathname.includes('/playlists/')) {
@@ -272,6 +288,10 @@ BeatHub.UI.clearSelection = () => {
 BeatHub.Interactions = BeatHub.Interactions || {};
 
 BeatHub.Interactions.handleBulkLike = () => {
+    if (!window.BEATHUB_CONFIG.isAuthenticated) {
+        if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Zaloguj się, aby dodawać utwory do polubionych.", "warning");
+        return;
+    }
     const ids = Array.from(BeatHub.UI.selectionState.selectedSongs);
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     fetch(window.BEATHUB_CONFIG.urls.bulkLike, {
@@ -280,15 +300,20 @@ BeatHub.Interactions.handleBulkLike = () => {
         body: JSON.stringify({song_ids: ids, action: 'like'})
     }).then(r => r.json()).then(d => {
         if(d.status === 'success') {
-            if (BeatHub.UI.showToast) BeatHub.UI.showToast(d.message, true);
+            sessionStorage.setItem('pendingToast', JSON.stringify({ msg: d.message, success: true }));
             BeatHub.UI.clearSelection();
-            if (window.Turbo) window.Turbo.visit(window.location.href, { action: "replace" });
+            if (window.visitPreservingScroll) window.visitPreservingScroll(window.location.pathname);
+            else if (window.Turbo) window.Turbo.visit(window.location.pathname, { action: "replace" });
             else window.location.reload();
         }
     });
 };
 
 BeatHub.Interactions.handleBulkUnlike = () => {
+    if (!window.BEATHUB_CONFIG.isAuthenticated) {
+        if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Zaloguj się, aby usuwać utwory z polubionych.", "warning");
+        return;
+    }
     const ids = Array.from(BeatHub.UI.selectionState.selectedSongs);
     const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
     fetch(window.BEATHUB_CONFIG.urls.bulkLike, {
@@ -297,15 +322,20 @@ BeatHub.Interactions.handleBulkUnlike = () => {
         body: JSON.stringify({song_ids: ids, action: 'unlike'})
     }).then(r => r.json()).then(d => {
         if(d.status === 'success') {
-            if (BeatHub.UI.showToast) BeatHub.UI.showToast(d.message, true);
+            sessionStorage.setItem('pendingToast', JSON.stringify({ msg: d.message, success: true }));
             BeatHub.UI.clearSelection();
-            if (window.Turbo) window.Turbo.visit(window.location.href, { action: "replace" });
+            if (window.visitPreservingScroll) window.visitPreservingScroll(window.location.pathname);
+            else if (window.Turbo) window.Turbo.visit(window.location.pathname, { action: "replace" });
             else window.location.reload();
         }
     });
 };
 
 BeatHub.Interactions.handleBulkAddToPlaylist = () => {
+    if (!window.BEATHUB_CONFIG.isAuthenticated) {
+        if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Zaloguj się, aby dodawać utwory do playlisty.", "warning");
+        return;
+    }
     const ids = Array.from(BeatHub.UI.selectionState.selectedSongs);
     if (BeatHub.Playlists && BeatHub.Playlists.openModal) {
         BeatHub.Playlists.openModal(ids, `${ids.length} wybranych utworów`);
@@ -313,6 +343,10 @@ BeatHub.Interactions.handleBulkAddToPlaylist = () => {
 };
 
 BeatHub.Interactions.handleBulkRemoveFromPlaylist = () => {
+    if (!window.BEATHUB_CONFIG.isAuthenticated) {
+        if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Zaloguj się, aby usuwać utwory z playlisty.", "warning");
+        return;
+    }
     const match = window.location.pathname.match(/\/playlists\/(\d+)\//);
     if (!match) return;
     const playlistId = match[1];
@@ -327,9 +361,10 @@ BeatHub.Interactions.handleBulkRemoveFromPlaylist = () => {
         body: JSON.stringify({song_ids: ids, playlist_id: playlistId})
     }).then(r => r.json()).then(d => {
         if(d.status === 'success') {
-            if (BeatHub.UI.showToast) BeatHub.UI.showToast(d.message, true);
+            sessionStorage.setItem('pendingToast', JSON.stringify({ msg: d.message, success: true }));
             BeatHub.UI.clearSelection();
-            if (window.Turbo) window.Turbo.visit(window.location.href, { action: "replace" });
+            if (window.visitPreservingScroll) window.visitPreservingScroll(window.location.pathname);
+            else if (window.Turbo) window.Turbo.visit(window.location.pathname, { action: "replace" });
             else window.location.reload();
         }
     });
@@ -530,10 +565,35 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
         if (window.toggleGlobalPlay) window.toggleGlobalPlay();
-    } else if (e.key === 'ArrowRight') {
-        if (window.playNext) window.playNext();
-    } else if (e.key === 'ArrowLeft') {
-        if (window.playPrev) window.playPrev();
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const queuePanel = document.getElementById('queue-panel');
+        const isQueueOpen = queuePanel && !queuePanel.classList.contains('hidden');
+        
+        if (isQueueOpen) {
+            if (e.key === 'ArrowRight') { if (window.playNext) window.playNext(); }
+            else { if (window.playPrev) window.playPrev(); }
+        } else {
+            if (window.audio && !isNaN(window.audio.duration)) {
+                if (e.key === 'ArrowRight') window.audio.currentTime = Math.min(window.audio.duration, window.audio.currentTime + 5);
+                else window.audio.currentTime = Math.max(0, window.audio.currentTime - 5);
+            }
+        }
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (window.audio) {
+            e.preventDefault();
+            const step = 0.05;
+            let newVol = e.key === 'ArrowUp' ? window.audio.volume + step : window.audio.volume - step;
+            newVol = Math.max(0, Math.min(1, newVol));
+            window.audio.volume = newVol;
+            
+            // Sync UI
+            const vs = document.getElementById('volume-slider');
+            if (vs) vs.value = newVol;
+            if (BeatHub.Player && BeatHub.Player.updateVolumeBackground) {
+                BeatHub.Player.updateVolumeBackground(newVol);
+            }
+            localStorage.setItem('beathub-volume', newVol);
+        }
     } else if (e.key === 'm' || e.key === 'M') {
         if (window.toggleMute) window.toggleMute();
     } else if (e.key === 's' || e.key === 'S') {
@@ -563,11 +623,13 @@ document.addEventListener('turbo:load', () => {
 BeatHub.UI.restoreScroll = function() {
     var scrollPos = sessionStorage.getItem('scrollPosition');
     if (scrollPos) {
-        var scrollContainer = document.querySelector('main');
-        if (scrollContainer) {
-            scrollContainer.scrollTop = parseInt(scrollPos);
-            sessionStorage.removeItem('scrollPosition');
-        }
+        sessionStorage.removeItem('scrollPosition');
+        requestAnimationFrame(function() {
+            var scrollContainer = document.querySelector('main');
+            if (scrollContainer) {
+                scrollContainer.scrollTop = parseInt(scrollPos);
+            }
+        });
     }
 };
 

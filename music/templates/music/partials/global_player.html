@@ -23,7 +23,7 @@
                 <a id="player-artist-link" href="#" class="text-text-secondary text-[10px] md:text-xs truncate block hover:text-text-main transition-colors"><span id="player-artist">BeatHub</span></a>
             </div>
             <div class="hidden sm:flex items-center gap-1 ml-2 shrink-0">
-                <button id="player-like-btn" onclick="handlePlayerLike(event)" class="text-text-muted hover:text-red-500 p-2 transition-all hover:scale-110" title="Polub utwór" aria-label="Polub utwór">
+                <button id="player-like-btn" onclick="handlePlayerLike(event)" class="text-text-muted hover:text-rose-500 p-2 transition-all hover:scale-110" title="Polub utwór" aria-label="Polub utwór">
                     {% include "music/partials/icons.html" with icon="like" classes="w-5 h-5 transition-colors" %}
                 </button>
                 <button onclick="handlePlayerPlaylist(event)" class="text-text-muted hover:text-primary p-2 transition-all hover:scale-110" title="Dodaj do playlisty" aria-label="Dodaj do playlisty">
@@ -36,20 +36,20 @@
         </div>
         <div class="flex flex-col items-center justify-center flex-1 max-w-3xl">
             <div class="flex items-center gap-6 md:gap-10 mb-2">
-                <button id="shuffle-btn" onclick="toggleShuffle()" class="hidden md:block text-text-secondary hover:text-primary transition-colors" title="Shuffle" aria-label="Przełącz odtwarzanie losowe">
+                <button id="shuffle-btn" onclick="toggleShuffle()" class="hidden md:block text-text-secondary hover:text-primary transition-colors" title="Odtwarzanie losowe" aria-label="Przełącz odtwarzanie losowe">
                     <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.44 20 9.5V4h-5.5zm.38 10.17l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.08-3.07z"></path></svg>
                 </button>
-                <button onclick="playPrev()" class="text-text-secondary hover:text-text-main" aria-label="Poprzedni utwór">
+                <button onclick="playPrev()" class="text-text-secondary hover:text-text-main" title="Poprzedni utwór" aria-label="Poprzedni utwór">
                     <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
                 </button>
-                <button onclick="toggleGlobalPlay()" class="w-10 h-10 flex items-center justify-center bg-text-main text-background-main rounded-full hover:scale-105 shadow-lg shrink-0" aria-label="Odtwarzaj / Pauza">
+                <button onclick="toggleGlobalPlay()" class="w-10 h-10 flex items-center justify-center bg-text-main text-background-main rounded-full hover:scale-105 shadow-lg shrink-0" title="Odtwarzaj / Pauza" aria-label="Odtwarzaj / Pauza">
                     <svg id="icon-play" class="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
                     <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
                 </button>
-                <button onclick="playNext()" class="text-text-secondary hover:text-text-main" aria-label="Następny utwór">
+                <button onclick="playNext()" class="text-text-secondary hover:text-text-main" title="Następny utwór" aria-label="Następny utwór">
                     <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
                 </button>
-                <button id="repeat-btn" onclick="toggleRepeat()" class="hidden md:block text-text-secondary hover:text-primary transition-colors" title="Repeat" aria-label="Przełącz powtarzanie">
+                <button id="repeat-btn" onclick="toggleRepeat()" class="hidden md:block text-text-secondary hover:text-primary transition-colors" title="Powtarzanie" aria-label="Przełącz powtarzanie">
                     <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"></path></svg>
                 </button>
             </div>
@@ -68,7 +68,7 @@
                 <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"></path></svg>
             </button>
             <div class="flex items-center gap-3">
-                <button onclick="toggleMute()" class="text-text-secondary hover:text-text-main transition-colors" aria-label="Wycisz / Wyłącz wyciszenie">
+                <button onclick="toggleMute()" class="text-text-secondary hover:text-text-main transition-colors" title="Wycisz / Wyłącz wyciszenie" aria-label="Wycisz / Wyłącz wyciszenie">
                     <svg id="vol-icon-high" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
                     <svg id="vol-icon-mute" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
                 </button>

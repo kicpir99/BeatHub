@@ -107,8 +107,10 @@ def remove_from_playlist(user, playlist_id, song_id):
 def bulk_remove_from_playlist(user, playlist_id, song_ids):
     """Masowe usuwanie utworów z playlisty."""
     playlist = get_object_or_404(Playlist, id=playlist_id, owner=user)
-    PlaylistPosition.objects.filter(playlist=playlist, song_id__in=song_ids).delete()
-    return f'Usunięto {len(song_ids)} utworów z playlisty {playlist.name}'
+    deleted_count, _ = PlaylistPosition.objects.filter(playlist=playlist, song_id__in=song_ids).delete()
+    if deleted_count > 0:
+        return f'Usunięto {deleted_count} utworów z playlisty {playlist.name}'
+    return f'Wybrane utwory nie znajdowały się na playliście {playlist.name}'
 
 @transaction.atomic
 def reorder_playlist(user, playlist_id, position_ids, start_index=1):

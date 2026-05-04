@@ -15,9 +15,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+
+from music.views.media_views import ranged_media_serve
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -25,4 +27,9 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Używamy własnej wersji serve, która lepiej obsługuje Range Requests dla audio
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', ranged_media_serve, {
+            'document_root': settings.MEDIA_ROOT,
+        }),
+    ]

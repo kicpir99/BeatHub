@@ -100,18 +100,24 @@ def bulk_toggle_likes(user, song_ids, action='like'):
     
     if action == 'like':
         songs_to_like = songs.exclude(id__in=profile.liked_songs.values_list('id', flat=True))
-        if songs_to_like.exists():
+        count = songs_to_like.count()
+        if count > 0:
             # Dodajemy wszystkie naraz do M2M
             profile.liked_songs.add(*songs_to_like)
             songs_to_like.update(likes_count=F('likes_count') + 1)
-        message = f"Dodano {songs_to_like.count()} utworów do polubionych"
+            message = f"Dodano {count} utworów do polubionych"
+        else:
+            message = "Wybrane utwory są już w polubionych"
     else:
         songs_to_unlike = songs.filter(id__in=profile.liked_songs.values_list('id', flat=True))
-        if songs_to_unlike.exists():
+        count = songs_to_unlike.count()
+        if count > 0:
             # Usuwamy wszystkie naraz z M2M
             profile.liked_songs.remove(*songs_to_unlike)
             songs_to_unlike.update(likes_count=F('likes_count') - 1)
-        message = f"Usunięto {songs_to_unlike.count()} utworów z polubionych"
+            message = f"Usunięto {count} utworów z polubionych"
+        else:
+            message = "Wybrane utwory nie były w polubionych"
         
     return message
 
@@ -147,7 +153,7 @@ def toggle_artist_follow(user, artist_id):
     profile = user.profile
     
     if artist.followers.filter(id=profile.id).exists():
-        profile.following.remove(artist)
+        artist.followers.remove(profile)
         version_key = f"artist_v_{artist.id}"
         try:
             cache.incr(version_key)
@@ -157,7 +163,7 @@ def toggle_artist_follow(user, artist_id):
         message = f"Nie obserwujesz już {artist.nickname}"
         is_following = False
     else:
-        profile.following.add(artist)
+        artist.followers.add(profile)
         version_key = f"artist_v_{artist.id}"
         try:
             cache.incr(version_key)

@@ -41,31 +41,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.4/dist/turbo.es2017-umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        window.BEATHUB_CONFIG = {
-            isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
-            urls: {
-                getUserPlaylists: "{% url 'music:get_user_playlists' %}",
-                copyPlaylist: "{% url 'music:copy_playlist' %}",
-                addToPlaylist: "{% url 'music:add_to_playlist' %}",
-                toggleLike: "{% url 'music:toggle_like' %}",
-                toggleAlbumLike: "{% url 'music:toggle_album_like' %}",
-                bulkAddToPlaylist: "{% url 'music:bulk_add_to_playlist' %}",
-                trackPlay: "{% url 'music:track_play' %}",
-                savePlaybackState: "{% url 'music:save_playback_state' %}",
-                getResumeSection: "{% url 'music:get_resume_section' %}",
-                getContextSongs: "{% url 'music:get_context_songs' %}",
-                playlistList: "{% url 'music:playlist_list' %}",
-                bulkLike: "{% url 'music:bulk_like' %}",
-                bulkRemoveFromPlaylist: "{% url 'music:bulk_remove_from_playlist' %}",
-                togglePlaylistFollow: "{% url 'music:toggle_playlist_follow' %}",
-            },
-            user: {
-                liked_song_ids: {{ liked_song_ids|safe|default:"[]" }},
-                liked_album_ids: {{ liked_album_ids|safe|default:"[]" }}
-            }
-        };
-    </script>
+
     <script src="{% static 'music/js/main.js' %}" defer></script>
     <script src="{% static 'music/js/player.js' %}" defer></script>
     <script src="{% static 'music/js/likes.js' %}" defer></script>
@@ -343,6 +319,17 @@
             pointer-events: none;
         }
 
+        /* Podnoszenie elementów UI nad odtwarzacz */
+        #bulk-action-bar, #toast-container {
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body.player-active #bulk-action-bar {
+            bottom: calc(6rem + 2.5rem);
+        }
+        body.player-active #toast-container {
+            bottom: calc(6rem + 1.5rem);
+        }
+
         /* Zwiększenie obszaru trafienia dla seekbara */
         #progress-container::after {
             content: '';
@@ -443,6 +430,31 @@
 </head>
 
 <body class="bg-background-main text-text-main min-h-screen overflow-hidden">
+    <script id="beathub-config">
+        window.BEATHUB_CONFIG = {
+            isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
+            urls: {
+                getUserPlaylists: "{% url 'music:get_user_playlists' %}",
+                copyPlaylist: "{% url 'music:copy_playlist' %}",
+                addToPlaylist: "{% url 'music:add_to_playlist' %}",
+                toggleLike: "{% url 'music:toggle_like' %}",
+                toggleAlbumLike: "{% url 'music:toggle_album_like' %}",
+                bulkAddToPlaylist: "{% url 'music:bulk_add_to_playlist' %}",
+                trackPlay: "{% url 'music:track_play' %}",
+                savePlaybackState: "{% url 'music:save_playback_state' %}",
+                getResumeSection: "{% url 'music:get_resume_section' %}",
+                getContextSongs: "{% url 'music:get_context_songs' %}",
+                playlistList: "{% url 'music:playlist_list' %}",
+                bulkLike: "{% url 'music:bulk_like' %}",
+                bulkRemoveFromPlaylist: "{% url 'music:bulk_remove_from_playlist' %}",
+                togglePlaylistFollow: "{% url 'music:toggle_playlist_follow' %}",
+            },
+            user: {
+                liked_song_ids: {{ liked_song_ids|safe|default:"[]" }},
+                liked_album_ids: {{ liked_album_ids|safe|default:"[]" }}
+            }
+        };
+    </script>
     <!-- Global Toast Container -->
     <div id="toast-container" class="fixed bottom-24 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
 

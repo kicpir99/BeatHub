@@ -76,6 +76,25 @@ window.showToast = BeatHub.UI.showToast;
 window.showDynamicToast = BeatHub.UI.showToast;
 window.closeToast = (btn) => btn.closest('.toast-animation-in, .toast-animation-out')?.remove();
 
+BeatHub.UI.managePageTheme = function() {
+    const root = document.documentElement;
+    const likedSongsId = document.getElementById('liked-songs-identifier');
+    
+    if (likedSongsId) {
+        // Apply red theme for Liked Songs page
+        root.style.setProperty('--primary', '#ef4444');
+        root.style.setProperty('--primary-hover', '#dc2626');
+        root.style.setProperty('--primary-glow', 'rgba(239, 68, 68, 0.4)');
+        root.style.setProperty('--primary-glow-light', 'rgba(239, 68, 68, 0.1)');
+    } else {
+        // Reset to default green (fallback to CSS variables in base.html)
+        root.style.removeProperty('--primary');
+        root.style.removeProperty('--primary-hover');
+        root.style.removeProperty('--primary-glow');
+        root.style.removeProperty('--primary-glow-light');
+    }
+};
+
 BeatHub.UI.initLazySections = function() {
     const resumeContainer = document.getElementById('resume-section-container');
     if (resumeContainer) {
@@ -447,6 +466,16 @@ BeatHub.Core.initGlobalInteractions = function() {
     BeatHub.UI.initSearchAutocomplete();
     BeatHub.Core.checkDjangoMessages();
 
+    // Manage page-specific themes (e.g. red for Liked Songs)
+    BeatHub.UI.managePageTheme();
+
+    // Force reset player if user is not authenticated (e.g. after logout)
+    if (window.BEATHUB_CONFIG && !window.BEATHUB_CONFIG.isAuthenticated) {
+        if (BeatHub.Player && BeatHub.Player.resetPlayer) {
+            BeatHub.Player.resetPlayer();
+        }
+    }
+
     if (BeatHub.Core.isInteractionsInitialized) return;
     BeatHub.Core.isInteractionsInitialized = true;
 
@@ -536,4 +565,12 @@ BeatHub.Core.initGlobalInteractions = function() {
 };
 
 document.addEventListener('turbo:load', BeatHub.Core.initGlobalInteractions);
+document.addEventListener('turbo:render', BeatHub.UI.managePageTheme);
+document.addEventListener('turbo:before-visit', function() {
+    const root = document.documentElement;
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--primary-hover');
+    root.style.removeProperty('--primary-glow');
+    root.style.removeProperty('--primary-glow-light');
+});
 document.addEventListener('DOMContentLoaded', BeatHub.Core.initGlobalInteractions);

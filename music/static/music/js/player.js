@@ -15,13 +15,16 @@ BeatHub.Player = {
         currentSongListenedTime: 0,
         lastReportedSongId: null,
         lastReportedPlaylistId: null,
-        playbackContext: { type: 'queue', id: null }
+        playbackContext: { type: 'queue', id: null },
+        isSeeking: false,
+        isDraggingSeek: false
     },
 
     init: function() {
         window.audio = document.getElementById('audio-element');
         this.restoreState();
         this.restoreVolume();
+        this.updatePlayerButtonsUI();
     },
 
     restoreVolume: function() {
@@ -44,6 +47,18 @@ BeatHub.Player = {
         try {
             const savedContext = sessionStorage.getItem('currentPlaybackContext');
             this.state.playbackContext = savedContext ? JSON.parse(savedContext) : { type: 'queue', id: null };
+            
+            // Przywracanie stanu shuffle i repeat
+            const savedShuffle = sessionStorage.getItem('isShuffle');
+            if (savedShuffle !== null) {
+                this.state.isShuffle = savedShuffle === 'true';
+                window.isShuffle = this.state.isShuffle;
+            }
+            
+            const savedRepeat = sessionStorage.getItem('repeatOne');
+            if (savedRepeat !== null) {
+                this.state.repeatOne = savedRepeat === 'true';
+            }
         } catch (e) {
             this.state.playbackContext = { type: 'queue', id: null };
         }
@@ -137,26 +152,27 @@ BeatHub.Player = {
         const p = BeatHub.Player;
         p.state.isShuffle = !p.state.isShuffle;
         window.isShuffle = p.state.isShuffle; 
-        const b = document.getElementById('shuffle-btn');
+        sessionStorage.setItem('isShuffle', p.state.isShuffle);
+        
         if(p.state.isShuffle){ 
-            b.classList.replace('text-gray-400','text-primary'); 
             p.state.originalQueue = [...p.state.currentQueue];
             window.originalQueue = p.state.originalQueue;
             let s = p.state.currentQueue.slice(1); 
             p.shuffleArr(s); 
             p.state.currentQueue = [p.state.currentQueue[0], ...s];
             window.currentQueue = p.state.currentQueue;
-            if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Shuffle ON", true); 
+            if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Odtwarzanie losowe: WŁĄCZONE", true); 
         } else { 
-            b.classList.replace('text-primary','text-gray-400'); 
             const cur = p.state.currentQueue[0];
             const idx = p.state.originalQueue.findIndex(s => s.id === cur.id); 
             if(idx !== -1) {
                 p.state.currentQueue = [...p.state.originalQueue.slice(idx), ...p.state.originalQueue.slice(0, idx)];
                 window.currentQueue = p.state.currentQueue;
             }
-            if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Shuffle OFF", true); 
+            if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Odtwarzanie losowe: WYŁĄCZONE", true); 
         }
+        
+        p.updatePlayerButtonsUI();
         p.renderQueue();
     },
 
@@ -347,10 +363,44 @@ BeatHub.Player = {
     toggleRepeat: () => { 
         const p = BeatHub.Player;
         p.state.repeatOne = !p.state.repeatOne; 
-        const b = document.getElementById('repeat-btn'); 
-        b.classList.toggle('text-primary', p.state.repeatOne); 
-        b.classList.toggle('text-gray-400', !p.state.repeatOne); 
-        if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast(`Repeat ${p.state.repeatOne?'ON':'OFF'}`, true); 
+        sessionStorage.setItem('repeatOne', p.state.repeatOne);
+        p.updatePlayerButtonsUI();
+        if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast(`Powtarzanie: ${p.state.repeatOne?'WŁĄCZONE':'WYŁĄCZONE'}`, true); 
+    },
+
+    updatePlayerButtonsUI: function() {
+        const p = BeatHub.Player;
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const repeatBtn = document.getElementById('repeat-btn');
+        
+        if (shuffleBtn) {
+            shuffleBtn.classList.toggle('text-primary', p.state.isShuffle);
+            shuffleBtn.classList.toggle('text-text-secondary', !p.state.isShuffle);
+            // Dodajemy kropkę/wskaźnik pod ikoną dla lepszej widoczności
+            shuffleBtn.style.position = 'relative';
+            let dot = shuffleBtn.querySelector('.active-dot');
+            if (p.state.isShuffle && !dot) {
+                dot = document.createElement('div');
+                dot.className = 'active-dot absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full shadow-[0_0_5px_var(--primary)]';
+                shuffleBtn.appendChild(dot);
+            } else if (!p.state.isShuffle && dot) {
+                dot.remove();
+            }
+        }
+        
+        if (repeatBtn) {
+            repeatBtn.classList.toggle('text-primary', p.state.repeatOne);
+            repeatBtn.classList.toggle('text-text-secondary', !p.state.repeatOne);
+            repeatBtn.style.position = 'relative';
+            let dot = repeatBtn.querySelector('.active-dot');
+            if (p.state.repeatOne && !dot) {
+                dot = document.createElement('div');
+                dot.className = 'active-dot absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full shadow-[0_0_5px_var(--primary)]';
+                repeatBtn.appendChild(dot);
+            } else if (!p.state.repeatOne && dot) {
+                dot.remove();
+            }
+        }
     },
 
     toggleGlobalPlay: function() { 
@@ -396,8 +446,21 @@ BeatHub.Player = {
             const seekTo = pos * duration;
             let attempts = 0;
             const trySeek = () => {
-                try { window.audio.currentTime = seekTo; } catch (err) {
-                    if (attempts < 10) { attempts++; setTimeout(trySeek, 100); }
+                // Ustawiamy czas
+                try {
+                    window.audio.currentTime = seekTo;
+                    
+                    // Sprawdzamy czy czas faktycznie się zmienił (z tolerancją 1s)
+                    // Jeśli nie, a mamy jeszcze próby, to ponawiamy (może to być kwestia buforowania)
+                    if (Math.abs(window.audio.currentTime - seekTo) > 1.5 && attempts < 10) {
+                        attempts++;
+                        setTimeout(trySeek, 200);
+                    }
+                } catch (err) {
+                    if (attempts < 10) {
+                        attempts++;
+                        setTimeout(trySeek, 200);
+                    }
                 }
             };
             trySeek();
@@ -463,25 +526,39 @@ BeatHub.Player = {
 
     clearQueue: () => { 
         if(confirm("Czy na pewno chcesz wyczyścić kolejkę?")){ 
-            const p = BeatHub.Player;
-            p.state.currentQueue = []; 
-            window.currentQueue = [];
-            p.state.playedHistory = []; 
-            window.playedHistory = [];
-            p.state.currentPlaylistId = null; 
-            p.state.currentAlbumId = null; 
-            window.audio.pause(); 
-            window.audio.src = ""; 
-            document.body.classList.remove('player-active');
-            document.getElementById('global-player').classList.add('translate-y-full'); 
-            p.renderQueue(); 
-            p.toggleQueue(); 
-            p.syncListIcons(); 
-            if (window.updatePlaylistIcons) window.updatePlaylistIcons(); 
-            if (window.updateAlbumIcons) window.updateAlbumIcons(); 
-            if (window.updateSongCardIcons) window.updateSongCardIcons();
+            BeatHub.Player.resetPlayer();
             if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast("Kolejka została wyczyszczona", true); 
         } 
+    },
+
+    resetPlayer: () => {
+        const p = BeatHub.Player;
+        p.state.currentQueue = []; 
+        window.currentQueue = [];
+        p.state.playedHistory = []; 
+        window.playedHistory = [];
+        p.state.currentPlaylistId = null; 
+        p.state.currentAlbumId = null; 
+        
+        if (window.audio) {
+            window.audio.pause(); 
+            window.audio.src = ""; 
+        }
+        
+        document.body.classList.remove('player-active');
+        const gp = document.getElementById('global-player');
+        if (gp) gp.classList.add('translate-y-full'); 
+        
+        const qp = document.getElementById('queue-panel');
+        if (qp && !qp.classList.contains('hidden')) {
+            p.toggleQueue();
+        }
+        
+        p.renderQueue(); 
+        p.syncListIcons(); 
+        if (window.updatePlaylistIcons) window.updatePlaylistIcons(); 
+        if (window.updateAlbumIcons) window.updateAlbumIcons(); 
+        if (window.updateSongCardIcons) window.updateSongCardIcons();
     },
 
     removeFromQueue: (e, i) => { 
@@ -590,7 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
     BeatHub.Player.init();
     
     window.audio.addEventListener('timeupdate', function() { 
-        if(window.audio.duration && !BeatHub.Player.isDraggingSeek){ 
+        if(window.audio.duration && !BeatHub.Player.isDraggingSeek && !BeatHub.Player.isSeeking){ 
             const bar = document.getElementById('progress-bar');
             if(bar) bar.style.width = (window.audio.currentTime / window.audio.duration) * 100 + '%'; 
             const timeCurrent = document.getElementById('time-current');
@@ -598,6 +675,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const timeTotal = document.getElementById('time-total');
             if(timeTotal) timeTotal.textContent = BeatHub.Player.fmtTime(window.audio.duration); 
         } 
+    });
+
+    window.audio.addEventListener('seeking', () => {
+        BeatHub.Player.isSeeking = true;
+        const pc = document.getElementById('progress-container');
+        if (pc) pc.classList.add('is-buffering');
+    });
+
+    window.audio.addEventListener('seeked', () => {
+        BeatHub.Player.isSeeking = false;
+        const pc = document.getElementById('progress-container');
+        if (pc) pc.classList.remove('is-buffering');
     });
     
     window.audio.addEventListener('play', () => {

@@ -154,12 +154,12 @@
                     <button id="follow-artist-btn" 
                             onclick="window.toggleArtistFollow({{ artist.id }})"
                             data-text-follow="{{ g.obserwuj|capfirst }}"
-                            data-text-following="{{ g.obserwujesz|capfirst }}"
+                            data-text-following="{{ g.odobserwuj|capfirst }}"
                             class="flex items-center gap-3 px-8 py-3.5 rounded-full font-bold text-lg transition-all shadow-lg active:scale-95 {% if is_following %}bg-background-element text-text-main border border-border-main hover:bg-background-card{% else %}bg-text-main text-background-main hover:opacity-90{% endif %}">
                         <svg id="follow-icon" class="w-6 h-6" fill="{% if is_following %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                         </svg>
-                        <span id="follow-text">{% if is_following %}{{ g.obserwujesz|capfirst }}{% else %}{{ g.obserwuj|capfirst }}{% endif %}</span>
+                        <span id="follow-text">{% if is_following %}{{ g.odobserwuj|capfirst }}{% else %}{{ g.obserwuj|capfirst }}{% endif %}</span>
                     </button>
 
                     <button onclick="window.handleShare(event, '{{ artist.nickname|escapejs }}', '{% url 'music:artist_detail' artist.slug %}')" 
@@ -443,7 +443,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ artist_id: artistId })
@@ -456,7 +456,7 @@
                 const icon = document.getElementById('follow-icon');
                 const count = document.getElementById('artist-followers-count');
                 
-                if (data.action === 'followed') {
+                if (data.is_following) {
                     btn.classList.remove('bg-text-main', 'text-background-main', 'hover:opacity-90');
                     btn.classList.add('bg-background-element', 'text-text-main', 'border', 'border-border-main', 'hover:bg-background-card');
                     text.textContent = btn.dataset.textFollowing;

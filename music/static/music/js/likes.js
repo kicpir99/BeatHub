@@ -60,6 +60,9 @@ BeatHub.Interactions.toggleLike = (e, b, id, rem = false) => {
                             }, 10);
                         }
                     }
+                } else if (d.is_liked) {
+                    if (window.visitPreservingScroll) window.visitPreservingScroll(window.location.href);
+                    else window.location.reload();
                 }
             }
 

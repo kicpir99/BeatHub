@@ -337,9 +337,10 @@
     .progress-bar-wrapper:hover .progress-bar-fill::after { transform: translateY(-50%) scale(1); }
 
     .bottom-controls { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-    .volume-control-wrapper { position: relative; display: flex; align-items: center; gap: 12px; background: var(--background-element); padding: 8px 12px; border-radius: 1rem; transition: all 0.3s ease; pointer-events: auto; }
-    .volume-control-wrapper:hover { background: var(--background-card); width: 150px; border: 1px solid var(--border-main); }
-    .volume-slider-discovery { -webkit-appearance: none; width: 0; opacity: 0; height: 4px; background: var(--border-main); border-radius: 2px; outline: none; cursor: pointer; transition: all 0.3s ease; }
+    .volume-control-wrapper { position: relative; display: flex; align-items: center; gap: 12px; background: var(--background-element); padding: 8px 12px; border-radius: 1rem; transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1); pointer-events: auto; width: 52px; overflow: hidden; white-space: nowrap; }
+    .volume-control-wrapper:hover { background: var(--background-card); width: 160px; border: 1px solid var(--border-main); }
+    .volume-icon { flex-shrink: 0; }
+    .volume-slider-discovery { -webkit-appearance: none; width: 0; opacity: 0; height: 4px; background: var(--border-main); border-radius: 2px; outline: none; cursor: pointer; transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.4s ease; transition-delay: 0.1s; }
     .volume-control-wrapper:hover .volume-slider-discovery { width: 90px; opacity: 1; }
 
     .action-buttons { display: flex; justify-content: center; align-items: center; gap: 2.5rem; margin-top: 0.5rem; }
@@ -1013,7 +1014,7 @@ if (typeof window.DiscoveryController === 'undefined') {
                 this.updateDiscoveryCounter(1);
             }
             card.style.transition = 'transform 0.6s ease-in, opacity 0.3s ease'; card.classList.add(direction === 'right' ? 'swiped-right' : 'swiped-left');
-            fetch('{% url "music:discovery_action" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' }, body: JSON.stringify({ song_id: song.id, action: direction === 'right' ? 'like' : 'skip' }) });
+            fetch('{% url "music:discovery_action" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }, body: JSON.stringify({ song_id: song.id, action: direction === 'right' ? 'like' : 'skip' }) });
             this.currentIndex++; this.stopAudio();
             setTimeout(() => { card.remove(); this.updateStackPositions(); this.startActiveAudio(); if (this.currentIndex + 2 < this.songs.length) { this.createCard(this.songs[this.currentIndex + 2], 2); this.updateStackPositions(); } if (this.songs.length - this.currentIndex < 5) this.loadSongs(); if (this.currentIndex >= this.songs.length) this.showEmptyState(); }, 300);
         }
@@ -1021,7 +1022,7 @@ if (typeof window.DiscoveryController === 'undefined') {
         undo() {
             if (this.history.length === 0 || this.isUndoing) return;
             this.isUndoing = true; const last = this.history.pop(); this.currentIndex--; this.stopAudio();
-            fetch('{% url "music:discovery_action" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' }, body: JSON.stringify({ song_id: last.song.id, action: 'undo' }) });
+            fetch('{% url "music:discovery_action" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }, body: JSON.stringify({ song_id: last.song.id, action: 'undo' }) });
             document.querySelectorAll('.discovery-card').forEach(c => { c.style.transform = ''; });
             this.createCard(last.song, 0); const card = document.getElementById(`card-${last.song.id}`);
             if (card) {

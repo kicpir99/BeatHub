@@ -21,7 +21,7 @@
     background-color: transparent; transition: background-color 0.2s ease; z-index: 10;
 }
 .song-row:hover td:first-child::before,
-.song-row.is-current td:first-child::before { background-color: #10b981; }
+.song-row.is-current td:first-child::before { background-color: var(--primary); }
 
 .song-row:first-child td:first-child::before { border-top-left-radius: 1.5rem; }
 .song-row:last-child td:first-child::before { border-bottom-left-radius: 1.5rem; }
@@ -38,26 +38,26 @@
 }
 
 .song-row.is-playing:not(:hover) .equalyzer { opacity: 1; pointer-events: none; }
-.song-row.is-current:not(.is-playing):not(:hover) .play-icon { opacity: 1; color: #10b981; }
+.song-row.is-current:not(.is-playing):not(:hover) .play-icon { opacity: 1; color: var(--primary); }
 .song-row:hover .equalyzer { opacity: 0 !important; }
-.song-row.is-playing:hover .pause-icon { opacity: 1; color: #10b981; }
+.song-row.is-playing:hover .pause-icon { opacity: 1; color: var(--primary); }
 .song-row:not(.is-playing):hover .play-icon { opacity: 1; }
 
 /* Nowe style dla miniatury w trakcie grania */
 .song-row.is-playing .cover-wrapper {
-    box-shadow: 0 0 0 2px #10b981, 0 0 15px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 0 0 2px var(--primary), 0 0 15px var(--primary-glow);
 }
 
 .song-row.is-playing .cover-overlay {
     opacity: 1 !important;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.6), rgba(16, 185, 129, 0.3)) !important;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.6), var(--primary-glow-light)) !important;
 }
 
 /* Album Card Playing State */
 .playing-card-glow {
-    border: 2px solid #10b981 !important;
-    box-shadow: 0 0 25px rgba(16, 185, 129, 0.3) !important;
-    background-color: rgba(16, 185, 129, 0.05) !important;
+    border: 2px solid var(--primary) !important;
+    box-shadow: 0 0 25px var(--primary-glow) !important;
+    background-color: var(--primary-glow-light) !important;
     transform: translateY(-8px) !important;
     z-index: 50;
 }
@@ -72,7 +72,7 @@
 }
 .equalyzer-bar {
     width: 3px;
-    background-color: #10b981;
+    background-color: var(--primary);
     border-radius: 1px;
     animation: up-and-down 0.5s infinite ease-in-out;
 }

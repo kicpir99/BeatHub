@@ -57,7 +57,8 @@ BeatHub.Playlists.handlePlaylistSubmit = (e) => {
                 
                 if (shouldVisit) {
                     sessionStorage.setItem('pendingToast', JSON.stringify({ msg: d.message, success: true }));
-                    if (window.Turbo) window.Turbo.visit(window.location.href, { action: "replace" });
+                    if (window.visitPreservingScroll) window.visitPreservingScroll(window.location.pathname);
+                    else if (window.Turbo) window.Turbo.visit(window.location.pathname, { action: "replace" });
                     else window.location.reload();
                 } else {
                     if (BeatHub.UI && BeatHub.UI.showToast) BeatHub.UI.showToast(d.message, true);
