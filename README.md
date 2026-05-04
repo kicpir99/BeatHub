@@ -2,6 +2,11 @@
 
 [🇵🇱 Przejdź do polskiej wersji (Polish Version)](#-beathub---nowoczesna-platforma-streamingowa-pl)
 
+<div align="center">
+  <img src="docs/images/banner.png" alt="BeatHub Main Interface" width="800">
+</div>
+<br>
+
 BeatHub is a modern, fully responsive music streaming web application built with the **Django** framework. The project stands out with an innovative User Interface (UI/UX) reminiscent of industry-leading streaming platforms, enriched with unique music discovery and navigation features.
 
 ---
@@ -9,10 +14,29 @@ BeatHub is a modern, fully responsive music streaming web application built with
 ## ✨ Key Features
 
 * **Global, Uninterrupted Music Player:** Powered by **Turbo (Hotwired)**, navigating through different pages does not interrupt the audio playback. The player remains consistently anchored at the bottom of the screen.
+
+<img src="docs/images/player-demo.gif" alt="Uninterrupted music player and dynamic visualizer" width="600">
+
 * **Discovery Mode:** A unique, interactive "card" system (inspired by dating apps) that allows users to quickly listen to song snippets and swipe to either like or skip them.
+
+<img src="docs/images/discovery-mode.gif" alt="Swiping cards in Discovery Mode" width="600">
+
 * **Advanced Queue Management:** Seamlessly add tracks to the playback queue with a fluid, globally accessible interface.
+
+<img src="docs/images/queue.gif" alt="Queue Management" width="600">
+
 * **Artist Profiles & Albums:** Rich detail pages for artists (featuring dynamically generated biographies) and comprehensive album listings complete with production credits.
+
+<img src="docs/images/artist-profile.png" alt="Artist Profile" width="600">
+
 * **Playlists & Likes System:** Create private and public playlists, and "like" individual tracks or entire albums.
+
+<img src="docs/images/playlists.gif" alt="Playlists" width="600">
+
+* **Detailed User Statistics:** Track your listening habits with comprehensive statistics, including top genres, favorite artists, and listening history visualized on your profile.
+
+<img src="docs/images/stats.png" alt="Statistics" width="600">
+
 * **Modern Design (Tailwind CSS):** An aesthetic interface featuring "Glassmorphism", smooth animations (including an animated equalizer and volume gradients), fully optimized for both mobile and desktop devices.
 * **Dynamic Audio Visualizer:** Real-time audio frequency analysis displayed directly on the player interface.
 
@@ -111,10 +135,29 @@ BeatHub to nowoczesna, w pełni responsywna aplikacja internetowa do strumieniow
 ## ✨ Główne funkcjonalności
 
 * **Globalny, nieprzerwany Odtwarzacz Muzyki:** Dzięki technologii **Turbo (Hotwired)**, nawigacja po podstronach aplikacji nie przerywa odtwarzania utworu. Odtwarzacz zawsze widnieje na dole ekranu.
+
+<img src="docs/images/player-demo.gif" alt="Uninterrupted music player and dynamic visualizer" width="600">
+
 * **Tryb Discovery (Odkrywaj):** Unikalny system interaktywnych "kart" (inspirowany aplikacjami randkowymi), pozwalający na szybkie odsłuchiwanie fragmentów utworów i przesuwanie ich, aby dodać je do ulubionych lub pominąć.
+
+<img src="docs/images/discovery-mode.gif" alt="Tryb Discovery" width="600">
+
 * **Zaawansowane zarządzanie listą odtwarzania (Kolejka):** Możliwość dodawania utworów do kolejki, z płynnym, globalnym interfejsem odtwarzania.
+
+<img src="docs/images/queue.gif" alt="Kolejka utworów" width="600">
+
 * **Profile Artystów i Albumy:** Bogate strony szczegółowe dla artystów (z generowanymi biografiami) oraz pełne wykazy albumów z informacjami o producentach.
+
+<img src="docs/images/artist-profile.png" alt="Profil Artysty" width="600">
+
 * **System Playlist i Polubień:** Tworzenie prywatnych oraz publicznych playlist, możliwość polubienia pojedynczych utworów, jak i całych albumów.
+
+<img src="docs/images/playlists.gif" alt="Playlisty" width="600">
+
+* **Szczegółowe Statystyki Użytkownika:** Śledź swoje nawyki słuchowe dzięki rozbudowanym statystykom, obejmującym ulubione gatunki, najczęściej słuchanych artystów oraz historię odtworzeń dostępną na profilu.
+
+<img src="docs/images/stats.png" alt="Statystyki" width="600">
+
 * **Nowoczesny Design (Tailwind CSS):** Estetyczny interfejs wspierający efekt "Glassmorphism", płynne animacje (w tym animowany equalizer i gradienty głośności) stworzony z myślą o urządzeniach mobilnych i desktopach.
 * **Dynamiczny Wizualizator Audio:** Analiza pasma odtwarzanego dźwięku w czasie rzeczywistym wyświetlana na interfejsie odtwarzacza.
 

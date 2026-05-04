@@ -278,7 +278,12 @@ def get_discovery_songs(params):
     """
     Zwraca przefiltrowany zestaw utworów do trybu odkrywania.
     """
-    genre_slugs = params.getlist('genre')
+    genre_slugs_raw = params.getlist('genre')
+    genre_slugs = []
+    for gs in genre_slugs_raw:
+        if gs:
+            genre_slugs.extend(gs.split(','))
+            
     year_from = params.get('year_from')
     year_to = params.get('year_to')
     
