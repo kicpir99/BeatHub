@@ -18,6 +18,18 @@ from mutagen import File as MutagenFile
 class Command(BaseCommand):
     help = 'Seeder z diagnostyką czasu trwania'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Pozwala uruchomić seeder przy DEBUG=False (np. na produkcji)',
+        )
+        parser.add_argument(
+            '--only-if-empty',
+            action='store_true',
+            help='Pomija seedowanie, jeśli w bazie istnieją już utwory',
+        )
+
     def _download_image(self, width, height, prefix, keyword=None):
         try:
             url = f"https://source.unsplash.com/featured/{width}x{height}/?{keyword}" if keyword else f"https://picsum.photos/{width}/{height}"
@@ -58,8 +70,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"Błąd Mutagen dla {os.path.basename(file_path)}: {e}"))
         return random.randint(120, 240)
 
-    def handle(self, *args, **kwargs):
-        if not settings.DEBUG: return 
+    def handle(self, *args, **options):
+        if not settings.DEBUG and not options.get('force'):
+            self.stdout.write(self.style.WARNING('Pominięto seed_db (DEBUG=False). Użyj --force, aby wymusić.'))
+            return
+        if options.get('only_if_empty') and Song.objects.exists():
+            self.stdout.write(self.style.SUCCESS('Baza zawiera już utwory — pomijam seed_db.'))
+            return
                 
         SUPPORTED_LANGUAGES = {'pl': 'pl_PL', 'en': 'en_US', 'es': 'es_ES', 'fr': 'fr_FR', 'de': 'de_DE', 'it': 'it_IT'}
         fakers = {lang: Faker(loc) for lang, loc in SUPPORTED_LANGUAGES.items()}
