@@ -9,7 +9,7 @@
 
 BeatHub is a modern, fully responsive music streaming web application built with the **Django** framework. The project stands out with an innovative User Interface (UI/UX) reminiscent of industry-leading streaming platforms, enriched with unique music discovery and navigation features.
 
-> **Live Demo:** Hosted on Render free tier (`https://beathub.onrender.com` — update with your deployed URL). If the service has spun down after inactivity, the initial wake-up takes ~30–40s. Healthcheck endpoint: `/healthz/`.
+> **Live Demo:** [https://beathub-ip60.onrender.com/](https://beathub-ip60.onrender.com/) *(hosted on Render free tier — if the service has spun down after inactivity, initial wake-up takes ~30–40s; healthcheck: `/healthz/`).*
 
 ---
 
