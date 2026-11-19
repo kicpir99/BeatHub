@@ -19,4 +19,4 @@ jobs:
           fi
           TARGET="${RENDER_APP_URL%/}/healthz/"
           echo "Pinging $TARGET"
-          curl -fsS --max-time 60 "$TARGET"
+          curl -fsS --max-time 120 --retry 2 --retry-delay 10 --retry-all-errors "$TARGET"
