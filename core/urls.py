@@ -15,21 +15,23 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include, re_path
 from django.conf import settings
-from django.conf.urls.static import static
 
 from music.views.media_views import ranged_media_serve
 
+
+def healthz(_request):
+    """Lightweight healthcheck endpoint for uptime monitors and Render."""
+    return JsonResponse({'status': 'ok'})
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('healthz/', healthz, name='healthz'),
     path('', include('music.urls')),
+    re_path(r'^media/(?P<path>.*)$', ranged_media_serve, {
+        'document_root': settings.MEDIA_ROOT,
+    }),
 ]
-
-if settings.DEBUG:
-    # Używamy własnej wersji serve, która lepiej obsługuje Range Requests dla audio
-    urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', ranged_media_serve, {
-            'document_root': settings.MEDIA_ROOT,
-        }),
-    ]
